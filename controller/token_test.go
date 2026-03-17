@@ -1,3 +1,6 @@
+//go:build legacy_db
+// +build legacy_db
+
 package controller
 
 import (

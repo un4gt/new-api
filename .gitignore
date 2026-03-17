@@ -19,13 +19,37 @@ tiktoken_cache
 .gocache
 .gomodcache/
 .cache
-web/bun.lock
 plans
 .claude
 
 electron/node_modules
 electron/dist
 data/
-.gomodcache/
 .gocache-temp
 .gopath
+
+docs/_local/
+
+# Local environment variants (keep example tracked)
+.env.*
+!.env.example
+
+# direnv
+.envrc
+.direnv/
+
+# Editor/OS temp files
+*.swp
+*.swo
+*~
+*.tmp
+*.orig
+*.rej
+
+# Docker Compose local overrides
+docker-compose.override.yml
+docker-compose.override.yaml
+docker-compose.local.yml
+docker-compose.local.yaml
+compose.override.yml
+compose.override.yaml

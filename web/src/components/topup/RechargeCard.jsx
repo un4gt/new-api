@@ -48,7 +48,6 @@ import {
 import { IconGift } from '@douyinfe/semi-icons';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
 import { getCurrencyConfig } from '../../helpers/render';
-import SubscriptionPlansCard from './SubscriptionPlansCard';
 
 const { Text } = Typography;
 
@@ -100,8 +99,7 @@ const RechargeCard = ({
   const initialTabSetRef = useRef(false);
   const showAmountSkeleton = useMinimumLoadingTime(amountLoading);
   const [activeTab, setActiveTab] = useState('topup');
-  const shouldShowSubscription =
-    !subscriptionLoading && subscriptionPlans.length > 0;
+  const shouldShowSubscription = false;
 
   useEffect(() => {
     if (initialTabSetRef.current) return;
@@ -613,23 +611,7 @@ const RechargeCard = ({
             }
             itemKey='subscription'
           >
-            <div className='py-2'>
-              <SubscriptionPlansCard
-                t={t}
-                loading={subscriptionLoading}
-                plans={subscriptionPlans}
-                payMethods={payMethods}
-                enableOnlineTopUp={enableOnlineTopUp}
-                enableStripeTopUp={enableStripeTopUp}
-                enableCreemTopUp={enableCreemTopUp}
-                billingPreference={billingPreference}
-                onChangeBillingPreference={onChangeBillingPreference}
-                activeSubscriptions={activeSubscriptions}
-                allSubscriptions={allSubscriptions}
-                reloadSubscriptionSelf={reloadSubscriptionSelf}
-                withCard={false}
-              />
-            </div>
+            <div className='py-2'>{topupContent}</div>
           </TabPane>
           <TabPane
             tab={

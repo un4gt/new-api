@@ -27,17 +27,14 @@ const SIDEBAR_REFRESH_EVENT = 'sidebar-refresh';
 
 export const DEFAULT_ADMIN_CONFIG = {
   chat: {
-    enabled: true,
-    playground: true,
-    chat: true,
+    enabled: false,
+    chat: false,
   },
   console: {
     enabled: true,
     detail: true,
     token: true,
     log: true,
-    midjourney: true,
-    task: true,
   },
   personal: {
     enabled: true,
@@ -48,10 +45,8 @@ export const DEFAULT_ADMIN_CONFIG = {
     enabled: true,
     channel: true,
     models: true,
-    deployment: true,
     redemption: true,
     user: true,
-    subscription: true,
     setting: true,
   },
 };
@@ -66,11 +61,24 @@ export const mergeAdminConfig = (savedConfig) => {
     if (!sectionConfig || typeof sectionConfig !== 'object') continue;
 
     if (!merged[sectionKey]) {
-      merged[sectionKey] = { ...sectionConfig };
       continue;
     }
 
-    merged[sectionKey] = { ...merged[sectionKey], ...sectionConfig };
+    const defaults = merged[sectionKey];
+    const sanitized = { ...defaults };
+
+    if (Object.prototype.hasOwnProperty.call(sectionConfig, 'enabled')) {
+      sanitized.enabled = sectionConfig.enabled;
+    }
+
+    Object.keys(defaults).forEach((moduleKey) => {
+      if (moduleKey === 'enabled') return;
+      if (Object.prototype.hasOwnProperty.call(sectionConfig, moduleKey)) {
+        sanitized[moduleKey] = sectionConfig[moduleKey];
+      }
+    });
+
+    merged[sectionKey] = sanitized;
   }
 
   return merged;

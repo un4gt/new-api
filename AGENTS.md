@@ -4,11 +4,20 @@
 
 This is an AI API gateway/proxy built with Go. It aggregates 40+ upstream AI providers (OpenAI, Claude, Gemini, Azure, AWS Bedrock, etc.) behind a unified API, with user management, billing, rate limiting, and an admin dashboard.
 
+## Minimal Build (Embeddings + Rerank)
+
+This repository is maintained as a **minimal build** focused on embeddings and reranking.
+
+- **Public relay endpoints**: `POST /v1/embeddings`, `POST /v1/rerank`, `GET /v1/models` (and `GET /v1/models/:model`)
+- **Database**: PostgreSQL only (MySQL/SQLite support removed)
+- **Docker image**: `tumuer/new-api-for-embeddings-and-reranker:latest`
+- **Upgrade/migration**: keep the PostgreSQL volume (e.g. `pg_data`) to migrate seamlessly between versions
+
 ## Tech Stack
 
 - **Backend**: Go 1.22+, Gin web framework, GORM v2 ORM
 - **Frontend**: React 18, Vite, Semi Design UI (@douyinfe/semi-ui)
-- **Databases**: SQLite, MySQL, PostgreSQL (all three must be supported)
+- **Databases**: PostgreSQL (minimal build; MySQL/SQLite removed)
 - **Cache**: Redis (go-redis) + in-memory cache
 - **Auth**: JWT, WebAuthn/Passkeys, OAuth (GitHub, Discord, OIDC, etc.)
 - **Frontend package manager**: Bun (preferred over npm/yarn/pnpm)
@@ -67,29 +76,17 @@ Do NOT directly import or call `encoding/json` in business code. These wrappers 
 
 Note: `json.RawMessage`, `json.Number`, and other type definitions from `encoding/json` may still be referenced as types, but actual marshal/unmarshal calls must go through `common.*`.
 
-### Rule 2: Database Compatibility — SQLite, MySQL >= 5.7.8, PostgreSQL >= 9.6
+### Rule 2: Database — PostgreSQL Only
 
-All database code MUST be fully compatible with all three databases simultaneously.
+This minimal build supports PostgreSQL only. MySQL and SQLite drivers are intentionally removed.
 
 **Use GORM abstractions:**
 - Prefer GORM methods (`Create`, `Find`, `Where`, `Updates`, etc.) over raw SQL.
 - Let GORM handle primary key generation — do not use `AUTO_INCREMENT` or `SERIAL` directly.
 
 **When raw SQL is unavoidable:**
-- Column quoting differs: PostgreSQL uses `"column"`, MySQL/SQLite uses `` `column` ``.
-- Use `commonGroupCol`, `commonKeyCol` variables from `model/main.go` for reserved-word columns like `group` and `key`.
-- Boolean values differ: PostgreSQL uses `true`/`false`, MySQL/SQLite uses `1`/`0`. Use `commonTrueVal`/`commonFalseVal`.
-- Use `common.UsingPostgreSQL`, `common.UsingSQLite`, `common.UsingMySQL` flags to branch DB-specific logic.
-
-**Forbidden without cross-DB fallback:**
-- MySQL-only functions (e.g., `GROUP_CONCAT` without PostgreSQL `STRING_AGG` equivalent)
-- PostgreSQL-only operators (e.g., `@>`, `?`, `JSONB` operators)
-- `ALTER COLUMN` in SQLite (unsupported — use column-add workaround)
-- Database-specific column types without fallback — use `TEXT` instead of `JSONB` for JSON storage
-
-**Migrations:**
-- Ensure all migrations work on all three databases.
-- For SQLite, use `ALTER TABLE ... ADD COLUMN` instead of `ALTER COLUMN` (see `model/main.go` for patterns).
+- Use PostgreSQL quoting (`"column"`), booleans `true`/`false`, and PostgreSQL string concatenation (`||`).
+- For reserved-word columns like `group` and `key`, use `commonGroupCol` / `commonKeyCol` from `model/main.go`.
 
 ### Rule 3: Frontend — Prefer Bun
 

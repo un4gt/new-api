@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
 )
@@ -82,12 +81,7 @@ func UserCheckin(userId int) (*Checkin, error) {
 	}
 
 	// 根据数据库类型选择不同的策略
-	if common.UsingSQLite {
-		// SQLite 不支持嵌套事务，使用顺序操作 + 手动回滚
-		return userCheckinWithoutTransaction(checkin, userId, quotaAwarded)
-	}
-
-	// MySQL 和 PostgreSQL 支持事务，使用事务保证原子性
+	// This minimal build is PostgreSQL-only, so we always use the transaction strategy.
 	return userCheckinWithTransaction(checkin, userId, quotaAwarded)
 }
 

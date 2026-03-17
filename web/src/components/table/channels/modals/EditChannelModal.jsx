@@ -77,7 +77,6 @@ import {
   IconSetting,
   IconCode,
   IconCopy,
-  IconGlobe,
   IconBolt,
   IconSearch,
   IconChevronUp,
@@ -379,14 +378,6 @@ const EditChannelModal = (props) => {
       setIonetMetadata(null);
     }
   }, [isEdit]);
-
-  const handleOpenIonetDeployment = () => {
-    if (!ionetMetadata?.deployment_id) {
-      return;
-    }
-    const targetUrl = `/console/deployment?deployment_id=${ionetMetadata.deployment_id}`;
-    window.open(targetUrl, '_blank', 'noopener');
-  };
   const [verifyLoading, setVerifyLoading] = useState(false);
   const statusCodeRiskConfirmResolverRef = useRef(null);
   const [statusCodeRiskConfirmVisible, setStatusCodeRiskConfirmVisible] =
@@ -2197,21 +2188,7 @@ const EditChannelModal = (props) => {
                         description={t(
                           '此渠道由 IO.NET 自动同步，类型、密钥和 API 地址已锁定。',
                         )}
-                      >
-                        <Space>
-                          {ionetMetadata?.deployment_id && (
-                            <Button
-                              size='small'
-                              theme='light'
-                              type='primary'
-                              icon={<IconGlobe />}
-                              onClick={handleOpenIonetDeployment}
-                            >
-                              {t('查看关联部署')}
-                            </Button>
-                          )}
-                        </Space>
-                      </Banner>
+                      />
                     )}
 
                     <Form.Select

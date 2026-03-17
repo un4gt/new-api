@@ -1,15 +1,18 @@
 package common
 
 const (
-	DatabaseTypeMySQL      = "mysql"
-	DatabaseTypeSQLite     = "sqlite"
 	DatabaseTypePostgreSQL = "postgres"
 )
 
-var UsingSQLite = false
+// Database flags
+//
+// This minimal build is PostgreSQL-only. Other database backends are not
+// supported and related flags are intentionally kept as constant false to
+// avoid scattered conditional logic across the codebase.
 var UsingPostgreSQL = false
-var LogSqlType = DatabaseTypeSQLite // Default to SQLite for logging SQL queries
+var UsingSQLite = false
 var UsingMySQL = false
-var UsingClickHouse = false
 
-var SQLitePath = "one-api.db?_busy_timeout=30000"
+// LogSqlType indicates which database backend is used for log SQL queries.
+// With PostgreSQL-only support, this should always remain "postgres" once DB is initialized.
+var LogSqlType = DatabaseTypePostgreSQL

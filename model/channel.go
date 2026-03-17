@@ -223,7 +223,7 @@ func (channel *Channel) GetOtherInfo() map[string]interface{} {
 }
 
 func (channel *Channel) SetOtherInfo(otherInfo map[string]interface{}) {
-	otherInfoBytes, err := json.Marshal(otherInfo)
+	otherInfoBytes, err := common.Marshal(otherInfo)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("failed to marshal other info: channel_id=%d, tag=%s, name=%s, error=%v", channel.Id, channel.GetTag(), channel.Name, err))
 		return
@@ -316,13 +316,7 @@ func SearchChannels(keyword string, group string, model string, idSort bool) ([]
 	var whereClause string
 	var args []interface{}
 	if group != "" && group != "null" {
-		var groupCondition string
-		if common.UsingMySQL {
-			groupCondition = `CONCAT(',', ` + commonGroupCol + `, ',') LIKE ?`
-		} else {
-			// sqlite, PostgreSQL
-			groupCondition = `(',' || ` + commonGroupCol + ` || ',') LIKE ?`
-		}
+		groupCondition := `(',' || ` + commonGroupCol + ` || ',') LIKE ?`
 		whereClause = "(id = ? OR name LIKE ? OR " + commonKeyCol + " = ? OR " + baseURLCol + " LIKE ?) AND " + modelsCol + ` LIKE ? AND ` + groupCondition
 		args = append(args, common.String2Int(keyword), "%"+keyword+"%", keyword, "%"+keyword+"%", "%"+model+"%", "%,"+group+",%")
 	} else {
@@ -811,13 +805,7 @@ func SearchTags(keyword string, group string, model string, idSort bool) ([]*str
 	var whereClause string
 	var args []interface{}
 	if group != "" && group != "null" {
-		var groupCondition string
-		if common.UsingMySQL {
-			groupCondition = `CONCAT(',', ` + commonGroupCol + `, ',') LIKE ?`
-		} else {
-			// sqlite, PostgreSQL
-			groupCondition = `(',' || ` + commonGroupCol + ` || ',') LIKE ?`
-		}
+		groupCondition := `(',' || ` + commonGroupCol + ` || ',') LIKE ?`
 		whereClause = "(id = ? OR name LIKE ? OR " + commonKeyCol + " = ? OR " + baseURLCol + " LIKE ?) AND " + modelsCol + ` LIKE ? AND ` + groupCondition
 		args = append(args, common.String2Int(keyword), "%"+keyword+"%", keyword, "%"+keyword+"%", "%"+model+"%", "%,"+group+",%")
 	} else {

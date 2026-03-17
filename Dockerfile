@@ -10,6 +10,10 @@ RUN DISABLE_ESLINT_PLUGIN='true' VITE_REACT_APP_VERSION=$(cat VERSION) bun run b
 
 FROM golang:alpine AS builder2
 ENV GO111MODULE=on CGO_ENABLED=0
+# This minimal build is PostgreSQL-only (no MySQL/SQLite drivers).
+#
+# Image tag (recommended):
+#   tumuer/new-api-for-embeddings-and-reranker:latest
 
 ARG TARGETOS
 ARG TARGETARCH

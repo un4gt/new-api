@@ -21,10 +21,7 @@ import { Toast, Pagination } from '@douyinfe/semi-ui';
 import { toastConstants } from '../constants';
 import React from 'react';
 import { toast } from 'react-toastify';
-import {
-  THINK_TAG_REGEX,
-  MESSAGE_ROLES,
-} from '../constants/playground.constants';
+import { THINK_TAG_REGEX, MESSAGE_ROLES } from '../constants/playground.constants';
 import { TABLE_COMPACT_MODES_KEY } from '../constants';
 import { MOBILE_BREAKPOINT } from '../hooks/common/useIsMobile';
 

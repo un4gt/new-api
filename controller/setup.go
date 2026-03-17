@@ -36,14 +36,8 @@ func GetSetup(c *gin.Context) {
 		return
 	}
 	setup.RootInit = model.RootUserExists()
-	if common.UsingMySQL {
-		setup.DatabaseType = "mysql"
-	}
 	if common.UsingPostgreSQL {
 		setup.DatabaseType = "postgres"
-	}
-	if common.UsingSQLite {
-		setup.DatabaseType = "sqlite"
 	}
 	c.JSON(200, gin.H{
 		"success": true,

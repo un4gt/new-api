@@ -38,8 +38,6 @@ import { useTranslation } from 'react-i18next';
 // 导入子组件
 import UserInfoHeader from './personal/components/UserInfoHeader';
 import AccountManagement from './personal/cards/AccountManagement';
-import NotificationSettings from './personal/cards/NotificationSettings';
-import PreferencesSettings from './personal/cards/PreferencesSettings';
 import CheckinCalendar from './personal/cards/CheckinCalendar';
 import EmailBindModal from './personal/modals/EmailBindModal';
 import WeChatBindModal from './personal/modals/WeChatBindModal';
@@ -76,20 +74,6 @@ const PersonalSetting = () => {
   const [passkeyRegisterLoading, setPasskeyRegisterLoading] = useState(false);
   const [passkeyDeleteLoading, setPasskeyDeleteLoading] = useState(false);
   const [passkeySupported, setPasskeySupported] = useState(false);
-  const [notificationSettings, setNotificationSettings] = useState({
-    warningType: 'email',
-    warningThreshold: 100000,
-    webhookUrl: '',
-    webhookSecret: '',
-    notificationEmail: '',
-    barkUrl: '',
-    gotifyUrl: '',
-    gotifyToken: '',
-    gotifyPriority: 5,
-    upstreamModelUpdateNotifyEnabled: false,
-    acceptUnsetModelRatioModel: false,
-    recordIpLog: false,
-  });
 
   useEffect(() => {
     let saved = localStorage.getItem('status');
@@ -144,29 +128,6 @@ const PersonalSetting = () => {
     }
     return () => clearInterval(countdownInterval); // Clean up on unmount
   }, [disableButton, countdown]);
-
-  useEffect(() => {
-    if (userState?.user?.setting) {
-      const settings = JSON.parse(userState.user.setting);
-      setNotificationSettings({
-        warningType: settings.notify_type || 'email',
-        warningThreshold: settings.quota_warning_threshold || 500000,
-        webhookUrl: settings.webhook_url || '',
-        webhookSecret: settings.webhook_secret || '',
-        notificationEmail: settings.notification_email || '',
-        barkUrl: settings.bark_url || '',
-        gotifyUrl: settings.gotify_url || '',
-        gotifyToken: settings.gotify_token || '',
-        gotifyPriority:
-          settings.gotify_priority !== undefined ? settings.gotify_priority : 5,
-        upstreamModelUpdateNotifyEnabled:
-          settings.upstream_model_update_notify_enabled === true,
-        acceptUnsetModelRatioModel:
-          settings.accept_unset_model_ratio_model || false,
-        recordIpLog: settings.record_ip_log || false,
-      });
-    }
-  }, [userState?.user?.setting]);
 
   const handleInputChange = (name, value) => {
     setInputs((inputs) => ({ ...inputs, [name]: value }));
@@ -401,52 +362,6 @@ const PersonalSetting = () => {
     }
   };
 
-  const handleNotificationSettingChange = (type, value) => {
-    setNotificationSettings((prev) => ({
-      ...prev,
-      [type]: value.target
-        ? value.target.value !== undefined
-          ? value.target.value
-          : value.target.checked
-        : value, // handle checkbox properly
-    }));
-  };
-
-  const saveNotificationSettings = async () => {
-    try {
-      const res = await API.put('/api/user/setting', {
-        notify_type: notificationSettings.warningType,
-        quota_warning_threshold: parseFloat(
-          notificationSettings.warningThreshold,
-        ),
-        webhook_url: notificationSettings.webhookUrl,
-        webhook_secret: notificationSettings.webhookSecret,
-        notification_email: notificationSettings.notificationEmail,
-        bark_url: notificationSettings.barkUrl,
-        gotify_url: notificationSettings.gotifyUrl,
-        gotify_token: notificationSettings.gotifyToken,
-        gotify_priority: (() => {
-          const parsed = parseInt(notificationSettings.gotifyPriority);
-          return isNaN(parsed) ? 5 : parsed;
-        })(),
-        upstream_model_update_notify_enabled:
-          notificationSettings.upstreamModelUpdateNotifyEnabled === true,
-        accept_unset_model_ratio_model:
-          notificationSettings.acceptUnsetModelRatioModel,
-        record_ip_log: notificationSettings.recordIpLog,
-      });
-
-      if (res.data.success) {
-        showSuccess(t('设置保存成功'));
-        await getUserData();
-      } else {
-        showError(res.data.message);
-      }
-    } catch (error) {
-      showError(t('设置保存失败'));
-    }
-  };
-
   return (
     <div className='mt-[60px]'>
       <div className='flex justify-center'>
@@ -488,18 +403,7 @@ const PersonalSetting = () => {
                 onPasskeyRegister={handleRegisterPasskey}
                 onPasskeyDelete={handleRemovePasskey}
               />
-
-              {/* 偏好设置（语言等） */}
-              <PreferencesSettings t={t} />
             </div>
-
-            {/* 右侧：其他设置 */}
-            <NotificationSettings
-              t={t}
-              notificationSettings={notificationSettings}
-              handleNotificationSettingChange={handleNotificationSettingChange}
-              saveNotificationSettings={saveNotificationSettings}
-            />
           </div>
         </div>
       </div>

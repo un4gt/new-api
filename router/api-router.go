@@ -90,7 +90,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/stripe/amount", controller.RequestStripeAmount)
 				selfRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.RequestCreemPay)
 				selfRoute.POST("/aff_transfer", controller.TransferAffQuota)
-				selfRoute.PUT("/setting", controller.UpdateUserSetting)
+				// Minimal build: personal "other/preferences" settings are removed from UI and APIs.
 
 				// 2FA routes
 				selfRoute.GET("/2fa/status", controller.Get2FAStatus)
@@ -131,38 +131,8 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
-		// Subscription billing (plans, purchase, admin management)
-		subscriptionRoute := apiRouter.Group("/subscription")
-		subscriptionRoute.Use(middleware.UserAuth())
-		{
-			subscriptionRoute.GET("/plans", controller.GetSubscriptionPlans)
-			subscriptionRoute.GET("/self", controller.GetSubscriptionSelf)
-			subscriptionRoute.PUT("/self/preference", controller.UpdateSubscriptionPreference)
-			subscriptionRoute.POST("/epay/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestEpay)
-			subscriptionRoute.POST("/stripe/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestStripePay)
-			subscriptionRoute.POST("/creem/pay", middleware.CriticalRateLimit(), controller.SubscriptionRequestCreemPay)
-		}
-		subscriptionAdminRoute := apiRouter.Group("/subscription/admin")
-		subscriptionAdminRoute.Use(middleware.AdminAuth())
-		{
-			subscriptionAdminRoute.GET("/plans", controller.AdminListSubscriptionPlans)
-			subscriptionAdminRoute.POST("/plans", controller.AdminCreateSubscriptionPlan)
-			subscriptionAdminRoute.PUT("/plans/:id", controller.AdminUpdateSubscriptionPlan)
-			subscriptionAdminRoute.PATCH("/plans/:id", controller.AdminUpdateSubscriptionPlanStatus)
-			subscriptionAdminRoute.POST("/bind", controller.AdminBindSubscription)
 
-			// User subscription management (admin)
-			subscriptionAdminRoute.GET("/users/:id/subscriptions", controller.AdminListUserSubscriptions)
-			subscriptionAdminRoute.POST("/users/:id/subscriptions", controller.AdminCreateUserSubscription)
-			subscriptionAdminRoute.POST("/user_subscriptions/:id/invalidate", controller.AdminInvalidateUserSubscription)
-			subscriptionAdminRoute.DELETE("/user_subscriptions/:id", controller.AdminDeleteUserSubscription)
-		}
-
-		// Subscription payment callbacks (no auth)
-		apiRouter.POST("/subscription/epay/notify", controller.SubscriptionEpayNotify)
-		apiRouter.GET("/subscription/epay/notify", controller.SubscriptionEpayNotify)
-		apiRouter.GET("/subscription/epay/return", controller.SubscriptionEpayReturn)
-		apiRouter.POST("/subscription/epay/return", controller.SubscriptionEpayReturn)
+		// Minimal build: subscription management removed.
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{
@@ -185,17 +155,9 @@ func SetApiRouter(router *gin.Engine) {
 			customOAuthRoute.PUT("/:id", controller.UpdateCustomOAuthProvider)
 			customOAuthRoute.DELETE("/:id", controller.DeleteCustomOAuthProvider)
 		}
-		performanceRoute := apiRouter.Group("/performance")
-		performanceRoute.Use(middleware.RootAuth())
-		{
-			performanceRoute.GET("/stats", controller.GetPerformanceStats)
-			performanceRoute.DELETE("/disk_cache", controller.ClearDiskCache)
-			performanceRoute.POST("/reset_stats", controller.ResetPerformanceStats)
-			performanceRoute.POST("/gc", controller.ForceGC)
-		}
-		ratioSyncRoute := apiRouter.Group("/ratio_sync")
-		ratioSyncRoute.Use(middleware.RootAuth())
-		{
+			ratioSyncRoute := apiRouter.Group("/ratio_sync")
+			ratioSyncRoute.Use(middleware.RootAuth())
+			{
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
@@ -309,16 +271,6 @@ func SetApiRouter(router *gin.Engine) {
 			prefillGroupRoute.DELETE("/:id", controller.DeletePrefillGroup)
 		}
 
-		mjRoute := apiRouter.Group("/mj")
-		mjRoute.GET("/self", middleware.UserAuth(), controller.GetUserMidjourney)
-		mjRoute.GET("/", middleware.AdminAuth(), controller.GetAllMidjourney)
-
-		taskRoute := apiRouter.Group("/task")
-		{
-			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
-			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
-		}
-
 		vendorRoute := apiRouter.Group("/vendors")
 		vendorRoute.Use(middleware.AdminAuth())
 		{
@@ -344,30 +296,5 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}
 
-		// Deployments (model deployment management)
-		deploymentsRoute := apiRouter.Group("/deployments")
-		deploymentsRoute.Use(middleware.AdminAuth())
-		{
-			deploymentsRoute.GET("/settings", controller.GetModelDeploymentSettings)
-			deploymentsRoute.POST("/settings/test-connection", controller.TestIoNetConnection)
-			deploymentsRoute.GET("/", controller.GetAllDeployments)
-			deploymentsRoute.GET("/search", controller.SearchDeployments)
-			deploymentsRoute.POST("/test-connection", controller.TestIoNetConnection)
-			deploymentsRoute.GET("/hardware-types", controller.GetHardwareTypes)
-			deploymentsRoute.GET("/locations", controller.GetLocations)
-			deploymentsRoute.GET("/available-replicas", controller.GetAvailableReplicas)
-			deploymentsRoute.POST("/price-estimation", controller.GetPriceEstimation)
-			deploymentsRoute.GET("/check-name", controller.CheckClusterNameAvailability)
-			deploymentsRoute.POST("/", controller.CreateDeployment)
-
-			deploymentsRoute.GET("/:id", controller.GetDeployment)
-			deploymentsRoute.GET("/:id/logs", controller.GetDeploymentLogs)
-			deploymentsRoute.GET("/:id/containers", controller.ListDeploymentContainers)
-			deploymentsRoute.GET("/:id/containers/:container_id", controller.GetContainerDetails)
-			deploymentsRoute.PUT("/:id", controller.UpdateDeployment)
-			deploymentsRoute.PUT("/:id/name", controller.UpdateDeploymentName)
-			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
-			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
-		}
 	}
 }

@@ -358,7 +358,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 	}
 
 	if constant.ErrorLogEnabled && types.IsRecordErrorLog(err) {
-		// 保存错误日志到mysql中
+		// 保存错误日志到数据库中
 		userId := c.GetInt("id")
 		tokenName := c.GetString("token_name")
 		modelName := c.GetString("original_model")

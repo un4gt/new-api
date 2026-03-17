@@ -18,7 +18,6 @@ require (
 	github.com/gin-contrib/sessions v0.0.5
 	github.com/gin-contrib/static v0.0.1
 	github.com/gin-gonic/gin v1.9.1
-	github.com/glebarez/sqlite v1.9.0
 	github.com/go-audio/aiff v1.1.0
 	github.com/go-audio/wav v1.1.0
 	github.com/go-playground/validator/v10 v10.20.0
@@ -54,7 +53,6 @@ require (
 	golang.org/x/sys v0.38.0
 	golang.org/x/text v0.32.0
 	gopkg.in/yaml.v3 v3.0.1
-	gorm.io/driver/mysql v1.4.3
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/gorm v1.25.2
 )
@@ -78,13 +76,11 @@ require (
 	github.com/fxamacker/cbor/v2 v2.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
-	github.com/glebarez/go-sqlite v1.21.2 // indirect
 	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/go-webauthn/x v0.1.25 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/google/go-tpm v0.9.5 // indirect
@@ -135,5 +131,4 @@ require (
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.40.1 // indirect
 )
