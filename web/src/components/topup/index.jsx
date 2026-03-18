@@ -317,7 +317,6 @@ const TopUp = () => {
     }
   };
 
-
   // 获取充值配置信息
   const getTopupInfo = async () => {
     try {

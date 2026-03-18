@@ -1,0 +1,14 @@
+# prek.toml
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+hooks = [{ id = "check-yaml" }, { id = "end-of-file-fixer" }]
+
+[[repos]]
+repo = "local"
+hooks = [
+    { id = "go-test", name = "Go Backend Test", language = "system", entry = "go test ./...", files = '\.go$|go\.mod$', pass_filenames = false },
+    { id = "web-prettier", name = "Frontend Prettier Check", language = "system", entry = "bash -c 'cd web && bun install && bun run lint'", files = '^web/.*\.(js|jsx|ts|tsx|json|css|md)$', pass_filenames = false },
+    { id = "web-eslint", name = "Frontend ESLint Check", language = "system", entry = "bash -c 'cd web && bun install && bun run eslint'", files = '^web/.*\.(js|jsx)$', pass_filenames = false },
+]

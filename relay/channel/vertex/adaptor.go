@@ -1,7 +1,7 @@
 package vertex
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
@@ -51,6 +52,13 @@ const anthropicVersion = "vertex-2023-10-16"
 type Adaptor struct {
 	RequestMode        int
 	AccountCredentials Credentials
+}
+
+func isEmbeddingModel(modelName string) bool {
+	return strings.HasPrefix(modelName, "text-embedding") ||
+		strings.HasPrefix(modelName, "embedding") ||
+		strings.HasPrefix(modelName, "gemini-embedding") ||
+		strings.Contains(modelName, "embedding")
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
@@ -231,6 +239,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		if strings.HasPrefix(info.UpstreamModelName, "imagen") {
 			suffix = "predict"
 		}
+		if isEmbeddingModel(info.UpstreamModelName) {
+			suffix = "predict"
+		}
 		return a.getRequestUrl(info, info.UpstreamModelName, suffix)
 	} else if a.RequestMode == RequestModeClaude {
 		if info.IsStream {
@@ -304,7 +315,7 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		}
 		if len(request.ExtraBody) > 0 {
 			var extra map[string]any
-			if err := json.Unmarshal(request.ExtraBody, &extra); err == nil {
+			if err := common.Unmarshal(request.ExtraBody, &extra); err == nil {
 				if n, ok := extra["n"].(float64); ok && n > 0 {
 					imgReq.N = lo.ToPtr(uint(n))
 				}
@@ -352,8 +363,39 @@ func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dt
 }
 
 func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
-	//TODO implement me
-	return nil, errors.New("not implemented")
+	if request.Input == nil {
+		return nil, errors.New("input is required")
+	}
+
+	inputs := request.ParseInput()
+	if len(inputs) == 0 {
+		return nil, errors.New("input is empty")
+	}
+
+	instances := make([]map[string]any, 0, len(inputs))
+	for _, input := range inputs {
+		instances = append(instances, map[string]any{
+			"content": input,
+		})
+	}
+
+	vertexRequest := map[string]any{
+		"instances": instances,
+	}
+
+	// Only newer models introduced after 2024 support outputDimensionality.
+	// Keep this in sync with Gemini adaptor behavior.
+	dimensions := lo.FromPtrOr(request.Dimensions, 0)
+	if dimensions > 0 {
+		switch info.UpstreamModelName {
+		case "text-embedding-004", "gemini-embedding-exp-03-07", "gemini-embedding-001":
+			vertexRequest["parameters"] = map[string]any{
+				"outputDimensionality": dimensions,
+			}
+		}
+	}
+
+	return vertexRequest, nil
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -362,6 +404,105 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	// Vertex AI uses :predict for embedding models. For Gemini-native embedding endpoints (RelayModeGemini),
+	// we need to convert Gemini embedding payloads to Vertex predict payloads.
+	if a.RequestMode == RequestModeGemini &&
+		info.RelayMode == constant.RelayModeGemini &&
+		isEmbeddingModel(info.UpstreamModelName) {
+		bodyBytes, err := io.ReadAll(requestBody)
+		if err != nil {
+			return nil, err
+		}
+
+		vertexReq := make(map[string]any)
+		instances := make([]map[string]any, 0)
+
+		outputDimensionality := 0
+		hasOutputDimensionality := false
+
+		if info.IsGeminiBatchEmbedding {
+			var req dto.GeminiBatchEmbeddingRequest
+			if err := common.Unmarshal(bodyBytes, &req); err != nil {
+				return nil, err
+			}
+			for _, r := range req.Requests {
+				if r == nil {
+					continue
+				}
+				content := ""
+				for _, part := range r.Content.Parts {
+					if part.Text != "" {
+						content += part.Text
+					}
+				}
+				instance := map[string]any{
+					"content": content,
+				}
+				if r.TaskType != "" {
+					instance["task_type"] = r.TaskType
+				}
+				if r.Title != "" {
+					instance["title"] = r.Title
+				}
+				instances = append(instances, instance)
+
+				if r.OutputDimensionality > 0 {
+					if hasOutputDimensionality && outputDimensionality != r.OutputDimensionality {
+						return nil, errors.New("inconsistent outputDimensionality in batch embedding requests")
+					}
+					outputDimensionality = r.OutputDimensionality
+					hasOutputDimensionality = true
+				}
+			}
+		} else {
+			var req dto.GeminiEmbeddingRequest
+			if err := common.Unmarshal(bodyBytes, &req); err != nil {
+				return nil, err
+			}
+
+			content := ""
+			for _, part := range req.Content.Parts {
+				if part.Text != "" {
+					content += part.Text
+				}
+			}
+			instance := map[string]any{
+				"content": content,
+			}
+			if req.TaskType != "" {
+				instance["task_type"] = req.TaskType
+			}
+			if req.Title != "" {
+				instance["title"] = req.Title
+			}
+			instances = append(instances, instance)
+
+			if req.OutputDimensionality > 0 {
+				outputDimensionality = req.OutputDimensionality
+				hasOutputDimensionality = true
+			}
+		}
+
+		if len(instances) == 0 {
+			return nil, errors.New("embedding request is empty")
+		}
+
+		vertexReq["instances"] = instances
+		if hasOutputDimensionality && outputDimensionality > 0 {
+			vertexReq["parameters"] = map[string]any{
+				"outputDimensionality": outputDimensionality,
+			}
+		}
+
+		newBodyBytes, err := common.Marshal(vertexReq)
+		if err != nil {
+			return nil, err
+		}
+		if common.DebugEnabled {
+			logger.LogDebug(c, "Vertex Embedding request body: "+string(newBodyBytes))
+		}
+		requestBody = bytes.NewReader(newBodyBytes)
+	}
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 
@@ -385,6 +526,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		case RequestModeClaude:
 			return claudeAdaptor.DoResponse(c, resp, info)
 		case RequestModeGemini:
+			if isEmbeddingModel(info.UpstreamModelName) {
+				return vertexEmbeddingHandler(c, resp, info)
+			}
 			if info.RelayMode == constant.RelayModeGemini {
 				return gemini.GeminiTextGenerationHandler(c, info, resp)
 			} else {

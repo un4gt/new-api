@@ -92,11 +92,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
     });
 
     return filteredItems;
-  }, [
-    localStorage.getItem('enable_data_export'),
-    t,
-    isModuleVisible,
-  ]);
+  }, [localStorage.getItem('enable_data_export'), t, isModuleVisible]);
 
   const financeItems = useMemo(() => {
     const items = [

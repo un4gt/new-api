@@ -23,10 +23,7 @@ export const DEFAULT_ENDPOINT = '/api/ratio_config';
 
 export const TABLE_COMPACT_MODES_KEY = 'table_compact_modes';
 
-export const API_ENDPOINTS = [
-  '/v1/embeddings',
-  '/v1/rerank',
-];
+export const API_ENDPOINTS = ['/v1/embeddings', '/v1/rerank'];
 
 export const TASK_ACTION_GENERATE = 'generate';
 export const TASK_ACTION_TEXT_GENERATE = 'textGenerate';
