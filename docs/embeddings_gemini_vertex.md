@@ -80,6 +80,7 @@ console.log(resp.status, await resp.text());
   - 时长：≤ 80s
 - 不支持 `gs://`（Google Cloud Storage）；如使用 `fileData.fileUri`，仅支持 `http(s)://`。
 - 不做 MIME 转换：**用户必须提供正确的 MIME**（网关只按白名单校验）。
+- 配置字段推荐使用 `embedContentConfig`（Vertex 标准）；网关也兼容旧字段 `config` / `embed_content_config`（会自动转为 `embedContentConfig` 透传上游）。
 
 ### Python（requests）- inlineData（推荐，适合本地文件）
 
@@ -101,7 +102,7 @@ payload = {
       {"inlineData": {"mimeType": "image/jpeg", "data": img_b64}},
     ],
   },
-  "config": {
+  "embedContentConfig": {
     "outputDimensionality": 1024
   }
 }
@@ -133,7 +134,7 @@ const payload = {
       }
     ]
   },
-  config: {
+  embedContentConfig: {
     outputDimensionality: 1024
   }
 };

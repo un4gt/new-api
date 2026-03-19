@@ -37,7 +37,7 @@ func TestEmbedContentRequest_ConfigSnakeCasePreservesExplicitZeroValues(t *testi
 	assert.Equal(t, float64(0), out["outputDimensionality"])
 	assert.Equal(t, false, out["autoTruncate"])
 
-	cfg, ok := out["config"].(map[string]any)
+	cfg, ok := out["embedContentConfig"].(map[string]any)
 	require.True(t, ok)
 
 	assert.Contains(t, cfg, "taskType")

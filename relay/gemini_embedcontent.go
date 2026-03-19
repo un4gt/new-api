@@ -283,13 +283,13 @@ func validateAndNormalizeEmbedding2EmbedContentRequest(c *gin.Context, req *dto.
 func validateEmbedding2OutputDimensionality(req *dto.EmbedContentRequest) (*int, *types.NewAPIError) {
 	var topLevel *int = req.OutputDimensionality
 	var cfgLevel *int
-	if req.Config != nil {
-		cfgLevel = req.Config.OutputDimensionality
+	if req.EmbedContentConfig != nil {
+		cfgLevel = req.EmbedContentConfig.OutputDimensionality
 	}
 
 	if topLevel != nil && cfgLevel != nil && *topLevel != *cfgLevel {
 		return nil, types.NewErrorWithStatusCode(
-			fmt.Errorf("outputDimensionality is inconsistent between top-level and config"),
+			fmt.Errorf("outputDimensionality is inconsistent between top-level and embedContentConfig"),
 			types.ErrorCodeInvalidRequest,
 			http.StatusBadRequest,
 			types.ErrOptionWithSkipRetry(),

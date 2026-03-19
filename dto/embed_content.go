@@ -12,7 +12,7 @@ import (
 // EmbedContentRequest matches Vertex AI publisher model embedContent request body.
 // It supports both camelCase (Vertex REST) and snake_case (common in examples) field variants.
 //
-// https://docs.cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1/projects.locations.publishers.models/embedContent
+// https://docs.cloud.google.com/vertex-ai/generative-ai/docs/reference/rest/v1beta1/projects.locations.publishers.models/embedContent
 type EmbedContentRequest struct {
 	Content GeminiChatContent `json:"content"`
 
@@ -23,7 +23,7 @@ type EmbedContentRequest struct {
 	AutoTruncate         *bool   `json:"autoTruncate,omitempty"`
 
 	// Preferred configuration container.
-	Config *EmbedContentConfig `json:"config,omitempty"`
+	EmbedContentConfig *EmbedContentConfig `json:"embedContentConfig,omitempty"`
 }
 
 // UnmarshalJSON supports snake_case and camelCase fields for EmbedContentRequest.
@@ -34,6 +34,8 @@ func (r *EmbedContentRequest) UnmarshalJSON(data []byte) error {
 		TaskTypeSnake             *string `json:"task_type,omitempty"`
 		OutputDimensionalitySnake *int    `json:"output_dimensionality,omitempty"`
 		AutoTruncateSnake         *bool   `json:"auto_truncate,omitempty"`
+		EmbedContentConfigSnake   *EmbedContentConfig `json:"embed_content_config,omitempty"`
+		ConfigCompat              *EmbedContentConfig `json:"config,omitempty"`
 	}
 
 	if err := common.Unmarshal(data, &aux); err != nil {
@@ -50,6 +52,14 @@ func (r *EmbedContentRequest) UnmarshalJSON(data []byte) error {
 	}
 	if aux.AutoTruncateSnake != nil {
 		r.AutoTruncate = aux.AutoTruncateSnake
+	}
+	if r.EmbedContentConfig == nil {
+		if aux.EmbedContentConfigSnake != nil {
+			r.EmbedContentConfig = aux.EmbedContentConfigSnake
+		}
+		if aux.ConfigCompat != nil {
+			r.EmbedContentConfig = aux.ConfigCompat
+		}
 	}
 	return nil
 }
