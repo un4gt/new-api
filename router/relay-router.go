@@ -1,6 +1,8 @@
 package router
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
@@ -38,6 +40,24 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 		relayV1Router.POST("/rerank", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatRerank)
+		})
+	}
+
+	// Minimal build: expose Gemini-compatible embedContent endpoints only for embeddings use cases.
+	relayV1BetaRouter := router.Group("/v1beta")
+	relayV1BetaRouter.Use(middleware.RouteTag("relay"))
+	relayV1BetaRouter.Use(middleware.SystemPerformanceCheck())
+	relayV1BetaRouter.Use(middleware.TokenAuth())
+	relayV1BetaRouter.Use(middleware.ModelRequestRateLimit())
+	relayV1BetaRouter.Use(middleware.Distribute())
+	{
+		relayV1BetaRouter.POST("/models/*path", func(c *gin.Context) {
+			// Only allow embedding actions for the minimal build.
+			if !strings.Contains(c.Request.URL.Path, ":embedContent") && !strings.Contains(c.Request.URL.Path, ":batchEmbedContents") {
+				controller.RelayNotFound(c)
+				return
+			}
+			controller.Relay(c, types.RelayFormatGemini)
 		})
 	}
 }

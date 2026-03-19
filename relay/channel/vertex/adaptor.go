@@ -240,7 +240,12 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			suffix = "predict"
 		}
 		if isEmbeddingModel(info.UpstreamModelName) {
-			suffix = "predict"
+			// gemini-embedding-2-preview uses embedContent instead of predict.
+			if info.UpstreamModelName == "gemini-embedding-2-preview" && strings.Contains(info.RequestURLPath, ":embedContent") {
+				suffix = "embedContent"
+			} else {
+				suffix = "predict"
+			}
 		}
 		return a.getRequestUrl(info, info.UpstreamModelName, suffix)
 	} else if a.RequestMode == RequestModeClaude {
@@ -408,7 +413,9 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 	// we need to convert Gemini embedding payloads to Vertex predict payloads.
 	if a.RequestMode == RequestModeGemini &&
 		info.RelayMode == constant.RelayModeGemini &&
-		isEmbeddingModel(info.UpstreamModelName) {
+		isEmbeddingModel(info.UpstreamModelName) &&
+		// gemini-embedding-2-preview uses :embedContent and should be sent as-is.
+		!(info.UpstreamModelName == "gemini-embedding-2-preview" && strings.Contains(info.RequestURLPath, ":embedContent")) {
 		bodyBytes, err := io.ReadAll(requestBody)
 		if err != nil {
 			return nil, err
@@ -527,6 +534,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			return claudeAdaptor.DoResponse(c, resp, info)
 		case RequestModeGemini:
 			if isEmbeddingModel(info.UpstreamModelName) {
+				if info.UpstreamModelName == "gemini-embedding-2-preview" && strings.Contains(info.RequestURLPath, ":embedContent") {
+					return vertexEmbedContentHandler(c, resp, info)
+				}
 				return vertexEmbeddingHandler(c, resp, info)
 			}
 			if info.RelayMode == constant.RelayModeGemini {

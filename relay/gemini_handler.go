@@ -204,6 +204,11 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 	isBatch := strings.HasSuffix(c.Request.URL.Path, "batchEmbedContents")
 	info.IsGeminiBatchEmbedding = isBatch
 
+	// Vertex/Gemini embedContent (single) can be used for multimodal embeddings (e.g. gemini-embedding-2-preview).
+	if !isBatch && strings.HasSuffix(c.Request.URL.Path, "embedContent") {
+		return geminiEmbedContentHelper(c, info)
+	}
+
 	var req dto.Request
 	var err error
 	var inputTexts []string
@@ -239,6 +244,16 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 	err = helper.ModelMappedHelper(c, info, req)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
+	}
+
+	// Gemini Embedding 2 uses :embedContent. Reject batch requests to avoid payload/endpoint mismatches.
+	if info.UpstreamModelName == "gemini-embedding-2-preview" && isBatch {
+		return types.NewErrorWithStatusCode(
+			fmt.Errorf("gemini-embedding-2-preview does not support :batchEmbedContents; use :embedContent"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
 	}
 
 	req.SetModelName("models/" + info.UpstreamModelName)

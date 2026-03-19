@@ -34,6 +34,16 @@ func EmbeddingHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
+	// gemini-embedding-2-preview is a multimodal embedding model and must be called via :embedContent.
+	if info.UpstreamModelName == "gemini-embedding-2-preview" {
+		return types.NewErrorWithStatusCode(
+			fmt.Errorf("gemini-embedding-2-preview is not supported on /v1/embeddings; use /v1beta/models/gemini-embedding-2-preview:embedContent"),
+			types.ErrorCodeInvalidRequest,
+			http.StatusBadRequest,
+			types.ErrOptionWithSkipRetry(),
+		)
+	}
+
 	adaptor := GetAdaptor(info.ApiType)
 	if adaptor == nil {
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
