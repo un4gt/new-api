@@ -458,6 +458,8 @@ func enforceEmbedding2MediaConstraints(c *gin.Context, modality string, mimeType
 		switch mimeType {
 		case "audio/mp3":
 			ext = ".mp3"
+		case "audio/mpeg":
+			ext = ".mp3"
 		case "audio/wav":
 			ext = ".wav"
 		}
