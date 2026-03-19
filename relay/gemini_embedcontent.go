@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -86,7 +87,12 @@ func geminiEmbedContentHelper(c *gin.Context, info *relaycommon.RelayInfo) (newA
 	}
 	adaptor.Init(info)
 
-	jsonData, err := common.Marshal(req)
+	upstreamReq, err := buildEmbedding2EmbedContentUpstreamRequest(info, req)
+	if err != nil {
+		return types.NewErrorWithStatusCode(err, types.ErrorCodeConvertRequestFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
+
+	jsonData, err := common.Marshal(upstreamReq)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
@@ -122,6 +128,61 @@ func geminiEmbedContentHelper(c *gin.Context, info *relaycommon.RelayInfo) (newA
 
 	postConsumeQuota(c, info, usage.(*dto.Usage))
 	return nil
+}
+
+func buildEmbedding2EmbedContentUpstreamRequest(info *relaycommon.RelayInfo, req *dto.EmbedContentRequest) (any, error) {
+	if info == nil {
+		return nil, fmt.Errorf("relay info is nil")
+	}
+	if req == nil {
+		return nil, fmt.Errorf("request is nil")
+	}
+
+	// Vertex AI uses embedContentConfig. Gemini API (generativelanguage.googleapis.com) uses top-level fields.
+	if info.ApiType != constant.APITypeGemini {
+		return req, nil
+	}
+
+	effectiveDims, newAPIError := validateEmbedding2OutputDimensionality(req)
+	if newAPIError != nil {
+		return nil, newAPIError
+	}
+
+	// Prefer config fields over deprecated top-level fields.
+	var (
+		taskType string
+		title    string
+	)
+	if req.EmbedContentConfig != nil {
+		if req.EmbedContentConfig.TaskType != nil {
+			taskType = strings.TrimSpace(*req.EmbedContentConfig.TaskType)
+		}
+		if req.EmbedContentConfig.Title != nil {
+			title = strings.TrimSpace(*req.EmbedContentConfig.Title)
+		}
+	}
+	if taskType == "" && req.TaskType != nil {
+		taskType = strings.TrimSpace(*req.TaskType)
+	}
+	if title == "" && req.Title != nil {
+		title = strings.TrimSpace(*req.Title)
+	}
+
+	out := &dto.GeminiEmbeddingRequest{
+		Model:   "models/" + info.UpstreamModelName,
+		Content: req.Content,
+	}
+	if taskType != "" {
+		out.TaskType = taskType
+	}
+	if title != "" {
+		out.Title = title
+	}
+	if effectiveDims != nil && *effectiveDims > 0 {
+		out.OutputDimensionality = *effectiveDims
+	}
+
+	return out, nil
 }
 
 func validateAndNormalizeEmbedding2EmbedContentRequest(c *gin.Context, req *dto.EmbedContentRequest) (*embedContentMediaCounts, *types.NewAPIError) {
@@ -318,7 +379,7 @@ func embedding2ModalityForMime(mimeType string) (string, error) {
 		return "doc", nil
 	case "video/mpeg", "video/mp4":
 		return "video", nil
-	case "audio/mp3", "audio/wav":
+	case "audio/mp3", "audio/wav", "audio/mpeg":
 		return "audio", nil
 	case "":
 		return "", fmt.Errorf("mimeType is required")
