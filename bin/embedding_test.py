@@ -425,6 +425,7 @@ def main() -> int:
             "content": {
                 "role": "user",
                 "parts": [
+                    {"text": "embed this image"},
                     {
                         "inlineData": {
                             "mimeType": "image/png",
