@@ -17,12 +17,15 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import io
 import json
 import os
+import struct
 import sys
 import time
 import wave
+import zlib
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -31,11 +34,6 @@ try:
 except Exception:
     print("Missing dependency: requests. Install with: pip install requests", file=sys.stderr)
     raise
-
-
-DEFAULT_IMAGE_PNG_BASE64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMB/6Xl8GQAAAAASUVORK5CYII="
-)
 
 
 @dataclass
@@ -149,6 +147,32 @@ def _extract_embedcontent_vector(data: Dict[str, Any]) -> List[float]:
                 return values
 
     raise AssertionError("cannot find embedding values in embedContent response")
+
+
+def _make_png_base64(
+    width: int = 8, height: int = 8, rgb: Tuple[int, int, int] = (255, 0, 0)
+) -> str:
+    # Generate a small RGB PNG without third-party deps. This is more robust than
+    # using an ultra-minimal PNG that some decoders/models may reject.
+    if width <= 0:
+        width = 8
+    if height <= 0:
+        height = 8
+    r, g, b = rgb
+
+    def _chunk(chunk_type: bytes, data: bytes) -> bytes:
+        crc = binascii.crc32(chunk_type + data) & 0xFFFFFFFF
+        return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", crc)
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit RGB
+
+    row = bytes([0]) + bytes([r, g, b]) * width  # filter=0, then RGB pixels
+    raw = row * height
+    idat = zlib.compress(raw, level=9)
+
+    png = sig + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
+    return base64.b64encode(png).decode("utf-8")
 
 
 def _make_wav_base64(duration_seconds: float = 1.0, sample_rate: int = 16000) -> str:
@@ -389,22 +413,22 @@ def main() -> int:
 
         override = {
             "content": {"role": "user", "parts": [{"text": "dim override"}]},
-            "config": {"output_dimensionality": dim},
+            "embedContentConfig": {"outputDimensionality": dim},
         }
         data2 = _embedcontent_post(override)
         vec2 = _extract_embedcontent_vector(data2)
         _must(len(vec2) == dim, f"expected dim={dim}, got dim={len(vec2)}")
 
     def test_embedcontent_2_image_png() -> None:
+        png_b64 = _make_png_base64()
         payload = {
             "content": {
                 "role": "user",
                 "parts": [
-                    {"text": "embed this png"},
                     {
-                        "inline_data": {
-                            "mime_type": "image/png",
-                            "data": DEFAULT_IMAGE_PNG_BASE64,
+                        "inlineData": {
+                            "mimeType": "image/png",
+                            "data": png_b64,
                         }
                     },
                 ],
@@ -423,8 +447,8 @@ def main() -> int:
                 "parts": [
                     {"text": "embed this pdf"},
                     {
-                        "inline_data": {
-                            "mime_type": "application/pdf",
+                        "inlineData": {
+                            "mimeType": "application/pdf",
                             "data": pdf_b64,
                         }
                     },
@@ -444,14 +468,14 @@ def main() -> int:
                 "parts": [
                     {"text": "embed this pdf with ocr"},
                     {
-                        "inline_data": {
-                            "mime_type": "application/pdf",
+                        "inlineData": {
+                            "mimeType": "application/pdf",
                             "data": pdf_b64,
                         }
                     },
                 ],
             },
-            "config": {"document_ocr": True},
+            "embedContentConfig": {"documentOcr": True},
         }
         data = _embedcontent_post(payload)
         vec = _extract_embedcontent_vector(data)
@@ -464,7 +488,7 @@ def main() -> int:
                 "role": "user",
                 "parts": [
                     {"text": "embed this wav"},
-                    {"inline_data": {"mime_type": "audio/wav", "data": wav_b64}},
+                    {"inlineData": {"mimeType": "audio/wav", "data": wav_b64}},
                 ],
             },
         }
@@ -483,7 +507,7 @@ def main() -> int:
                 "role": "user",
                 "parts": [
                     {"text": "embed this video"},
-                    {"inline_data": {"mime_type": args.video_mime, "data": b64}},
+                    {"inlineData": {"mimeType": args.video_mime, "data": b64}},
                 ],
             },
         }
@@ -499,9 +523,9 @@ def main() -> int:
                 "role": "user",
                 "parts": [
                     {
-                        "file_data": {
-                            "mime_type": args.file_uri_mime,
-                            "file_uri": args.file_uri,
+                        "fileData": {
+                            "mimeType": args.file_uri_mime,
+                            "fileUri": args.file_uri,
                         }
                     }
                 ],
@@ -521,7 +545,7 @@ def main() -> int:
         # 2) outputDimensionality > 3072 should be rejected by gateway
         payload2 = {
             "content": {"role": "user", "parts": [{"text": "dims too large"}]},
-            "config": {"output_dimensionality": 3073},
+            "embedContentConfig": {"outputDimensionality": 3073},
         }
         status2, _, text2, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", payload2)
         _must(status2 == 400, f"expected 400 for dims>3072, got {status2}: {text2}")
@@ -531,13 +555,13 @@ def main() -> int:
             "content": {
                 "role": "user",
                 "parts": [
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
+                    {"inlineData": {"mimeType": "image/jpeg", "data": "AA=="}},
                 ],
             },
         }
@@ -550,7 +574,7 @@ def main() -> int:
         too_many_pages = {
             "content": {
                 "role": "user",
-                "parts": [{"inline_data": {"mime_type": "application/pdf", "data": fake_pdf_b64}}],
+                "parts": [{"inlineData": {"mimeType": "application/pdf", "data": fake_pdf_b64}}],
             },
         }
         status4, _, text4, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", too_many_pages)
@@ -560,7 +584,7 @@ def main() -> int:
         gs_uri = {
             "content": {
                 "role": "user",
-                "parts": [{"file_data": {"mime_type": "application/pdf", "file_uri": "gs://bucket/a.pdf"}}],
+                "parts": [{"fileData": {"mimeType": "application/pdf", "fileUri": "gs://bucket/a.pdf"}}],
             },
         }
         status5, _, text5, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", gs_uri)
