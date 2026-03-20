@@ -94,6 +94,7 @@ import {
   SiNotion,
   SiOkta,
   SiOpenid,
+  SiNvidia,
   SiReddit,
   SiSlack,
   SiTelegram,
@@ -384,6 +385,8 @@ export function getChannelIcon(channelType) {
       return <Jina size={iconSize} />;
     case 58: // Moark
       return <SiGitea size={iconSize} />;
+    case 59: // Nvidia
+      return <SiNvidia size={iconSize} />;
     case 40: // SiliconCloud
       return <SiliconCloud.Color size={iconSize} />;
     case 42: // Mistral AI

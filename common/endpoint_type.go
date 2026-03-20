@@ -15,6 +15,10 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 			constant.EndpointTypeSentenceSimilarity,
 			constant.EndpointTypeRerankMultimodal,
 		}
+	case constant.ChannelTypeNvidia:
+		endpointTypes = []constant.EndpointType{
+			constant.EndpointTypeEmbeddings,
+		}
 	//case constant.ChannelTypeMidjourney, constant.ChannelTypeMidjourneyPlus:
 	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeMidjourney}
 	//case constant.ChannelTypeSunoAPI:

@@ -2,6 +2,8 @@ package model
 
 import (
 	"strings"
+
+	"github.com/QuantumNous/new-api/constant"
 )
 
 // 简化的供应商映射规则
@@ -35,6 +37,10 @@ var defaultVendorRules = map[string]string{
 	"kling":    "快手",
 	"jimeng":   "即梦",
 	"vidu":     "Vidu",
+	"nvidia":   "NVIDIA",
+	"nv-":      "NVIDIA",
+	"nemotron": "NVIDIA",
+	"dinov2":   "NVIDIA",
 }
 
 // 供应商默认图标映射
@@ -65,6 +71,66 @@ var defaultVendorIcons = map[string]string{
 	"微软":         "AzureAI",
 	"Microsoft":  "AzureAI",
 	"Azure":      "AzureAI",
+	"NVIDIA":     "SiNvidia",
+}
+
+// Explicit metadata defaults for NVIDIA models to keep UI display consistent.
+// These are applied only when the model has no existing metadata row.
+var nvidiaModelMetadataDefaults = map[string]struct {
+	Description string
+	Tags        string
+	Icon        string
+}{
+	"llama-nemotron-embed-1b-v2": {
+		Description: "NVIDIA text embedding model for retrieval and semantic similarity.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"llama-3_2-nemoretriever-300m-embed-v2": {
+		Description: "NVIDIA text embedding model optimized for retrieval workloads.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"llama-3_2-nemoretriever-300m-embed-v1": {
+		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"llama-3.2-nv-embedqa-1b-v2": {
+		Description: "NVIDIA text embedding model tuned for embedding-based question answering.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nv-embedqa-e5-v5": {
+		Description: "NVIDIA text embedding model for retrieval and QA pipelines.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nv-embed-v1": {
+		Description: "NVIDIA general-purpose text embedding model.",
+		Tags:        "NVIDIA,text-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"bge-m3": {
+		Description: "BGE-M3 embedding model exposed via NVIDIA Build and NVIDIA channel.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,multilingual",
+		Icon:        "SiNvidia",
+	},
+	"llama-nemotron-embed-vl-1b-v2": {
+		Description: "NVIDIA multimodal embedding model for image-text retrieval.",
+		Tags:        "NVIDIA,multimodal-embedding,image-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"llama-3.2-nemoretriever-1b-vlm-embed-v1": {
+		Description: "NVIDIA multimodal embedding model for visual-language retrieval.",
+		Tags:        "NVIDIA,multimodal-embedding,image-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"nv-dinov2": {
+		Description: "NVIDIA image embedding model with base64 (<200KB) and NVCF asset_id (>=200KB) input modes.",
+		Tags:        "NVIDIA,image-to-embedding,multimodal-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
 }
 
 // initDefaultVendorMapping 简化的默认供应商映射
@@ -86,11 +152,25 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 		}
 
 		// 创建模型元数据
+		description := ""
+		tags := ""
+		icon := ""
+		if ability.ChannelType == constant.ChannelTypeNvidia {
+			if metaDefaults, ok := nvidiaModelMetadataDefaults[modelName]; ok {
+				description = metaDefaults.Description
+				tags = metaDefaults.Tags
+				icon = metaDefaults.Icon
+			}
+		}
+
 		metaMap[modelName] = &Model{
-			ModelName: modelName,
-			VendorID:  vendorID,
-			Status:    1,
-			NameRule:  NameRuleExact,
+			ModelName:   modelName,
+			Description: description,
+			Tags:        tags,
+			Icon:        icon,
+			VendorID:    vendorID,
+			Status:      1,
+			NameRule:    NameRuleExact,
 		}
 	}
 }

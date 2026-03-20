@@ -171,6 +171,7 @@ docker run --name new-api -d --restart always \
 | ⚙️ Environment Configuration | [Environment Variables](https://docs.newapi.pro/en/docs/installation/config-maintenance/environment-variables) |
 | 📡 API Documentation | [API Documentation](https://docs.newapi.pro/en/docs/api) |
 | 🧩 Embeddings Examples | [Vertex/Gemini Embeddings](./docs/embeddings_gemini_vertex.md) |
+| 🧩 Embeddings Examples | [Nvidia Embeddings](./docs/embeddings_nvidia.md) |
 | ❓ FAQ | [FAQ](https://docs.newapi.pro/en/docs/support/faq) |
 | 💬 Community Interaction | [Communication Channels](https://docs.newapi.pro/en/docs/support/community-interaction) |
 

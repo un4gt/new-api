@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
+	"github.com/QuantumNous/new-api/relay/channel/nvidia"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
 	"github.com/QuantumNous/new-api/service"
 
@@ -263,6 +264,10 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 			return nil, err
 		}
 		return normalizeModelNames(models), nil
+	}
+
+	if channel.Type == constant.ChannelTypeNvidia {
+		return normalizeModelNames(nvidia.ModelList), nil
 	}
 
 	var url string

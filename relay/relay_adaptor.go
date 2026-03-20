@@ -24,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/moark"
 	"github.com/QuantumNous/new-api/relay/channel/mokaai"
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
+	"github.com/QuantumNous/new-api/relay/channel/nvidia"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	"github.com/QuantumNous/new-api/relay/channel/palm"
@@ -123,6 +124,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &codex.Adaptor{}
 	case constant.APITypeMoark:
 		return &moark.Adaptor{}
+	case constant.APITypeNvidia:
+		return &nvidia.Adaptor{}
 	}
 	return nil
 }
