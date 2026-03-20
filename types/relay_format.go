@@ -13,6 +13,8 @@ const (
 	RelayFormatOpenAIRealtime                        = "openai_realtime"
 	RelayFormatRerank                                = "rerank"
 	RelayFormatEmbedding                             = "embedding"
+	RelayFormatSentenceSimilarity                    = "sentence_similarity"
+	RelayFormatRerankMultimodal                      = "rerank_multimodal"
 
 	RelayFormatTask    = "task"
 	RelayFormatMjProxy = "mj_proxy"

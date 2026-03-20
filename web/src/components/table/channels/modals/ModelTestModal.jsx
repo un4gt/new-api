@@ -61,6 +61,8 @@ const ModelTestModal = ({
     'embeddings',
     'image-generation',
     'jina-rerank',
+    'sentence-similarity',
+    'rerank-multimodal',
     'openai-response-compact',
   ].includes(selectedEndpointType);
 
@@ -92,6 +94,14 @@ const ModelTestModal = ({
       label: 'Gemini (/v1beta/models/{model}:generateContent)',
     },
     { value: 'jina-rerank', label: 'Jina Rerank (/v1/rerank)' },
+    {
+      value: 'sentence-similarity',
+      label: 'Sentence Similarity (/v1/sentence-similarity)',
+    },
+    {
+      value: 'rerank-multimodal',
+      label: 'Rerank Multimodal (/v1/rerank/multimodal)',
+    },
     {
       value: 'image-generation',
       label: t('图像生成') + ' (/v1/images/generations)',

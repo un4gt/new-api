@@ -19,6 +19,10 @@ func GuessRelayFormatFromRequest(req any) (types.RelayFormat, bool) {
 		return types.RelayFormatEmbedding, true
 	case *dto.RerankRequest, dto.RerankRequest:
 		return types.RelayFormatRerank, true
+	case *dto.SentenceSimilarityRequest, dto.SentenceSimilarityRequest:
+		return types.RelayFormatSentenceSimilarity, true
+	case *dto.RerankMultimodalRequest, dto.RerankMultimodalRequest:
+		return types.RelayFormatRerankMultimodal, true
 	case *dto.ImageRequest, dto.ImageRequest:
 		return types.RelayFormatOpenAIImage, true
 	case *dto.AudioRequest, dto.AudioRequest:

@@ -149,6 +149,10 @@ func appendRequestConversionChain(relayInfo *relaycommon.RelayInfo, other map[st
 			chain = append(chain, "Google Gemini")
 		case types.RelayFormatOpenAIResponses:
 			chain = append(chain, "OpenAI Responses")
+		case types.RelayFormatSentenceSimilarity:
+			chain = append(chain, "Sentence Similarity")
+		case types.RelayFormatRerankMultimodal:
+			chain = append(chain, "Rerank Multimodal")
 		default:
 			chain = append(chain, string(f))
 		}

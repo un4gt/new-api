@@ -44,6 +44,8 @@ const (
 	RelayModeVideoSubmit
 
 	RelayModeRerank
+	RelayModeSentenceSimilarity
+	RelayModeRerankMultimodal
 
 	RelayModeResponses
 
@@ -82,8 +84,12 @@ func Path2RelayMode(path string) int {
 		relayMode = RelayModeAudioTranscription
 	} else if strings.HasPrefix(path, "/v1/audio/translations") {
 		relayMode = RelayModeAudioTranslation
+	} else if strings.HasPrefix(path, "/v1/rerank/multimodal") {
+		relayMode = RelayModeRerankMultimodal
 	} else if strings.HasPrefix(path, "/v1/rerank") {
 		relayMode = RelayModeRerank
+	} else if strings.HasPrefix(path, "/v1/sentence-similarity") {
+		relayMode = RelayModeSentenceSimilarity
 	} else if strings.HasPrefix(path, "/v1/realtime") {
 		relayMode = RelayModeRealtime
 	} else if strings.HasPrefix(path, "/v1beta/models") || strings.HasPrefix(path, "/v1/models") {

@@ -44,6 +44,10 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidateEmbeddingRequest(c, relayMode)
 	case types.RelayFormatRerank:
 		request, err = GetAndValidateRerankRequest(c)
+	case types.RelayFormatSentenceSimilarity:
+		request, err = GetAndValidateSentenceSimilarityRequest(c)
+	case types.RelayFormatRerankMultimodal:
+		request, err = GetAndValidateRerankMultimodalRequest(c)
 	case types.RelayFormatOpenAIAudio:
 		request, err = GetAndValidAudioRequest(c, relayMode)
 	case types.RelayFormatOpenAIRealtime:
@@ -91,6 +95,61 @@ func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
 		return nil, types.NewError(fmt.Errorf("documents is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
 	return rerankRequest, nil
+}
+
+func GetAndValidateSentenceSimilarityRequest(c *gin.Context) (*dto.SentenceSimilarityRequest, error) {
+	var request *dto.SentenceSimilarityRequest
+	err := common.UnmarshalBodyReusable(c, &request)
+	if err != nil {
+		logger.LogError(c, fmt.Sprintf("GetAndValidateSentenceSimilarityRequest failed: %s", err.Error()))
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if request.Model == "" {
+		return nil, types.NewError(fmt.Errorf("model is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if request.Inputs.SourceSentence == "" {
+		return nil, types.NewError(fmt.Errorf("inputs.source_sentence is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if len(request.Inputs.Sentences) == 0 {
+		return nil, types.NewError(fmt.Errorf("inputs.sentences is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	return request, nil
+}
+
+func GetAndValidateRerankMultimodalRequest(c *gin.Context) (*dto.RerankMultimodalRequest, error) {
+	var request *dto.RerankMultimodalRequest
+	err := common.UnmarshalBodyReusable(c, &request)
+	if err != nil {
+		logger.LogError(c, fmt.Sprintf("GetAndValidateRerankMultimodalRequest failed: %s", err.Error()))
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if request.Model == "" {
+		return nil, types.NewError(fmt.Errorf("model is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if len(request.Documents) == 0 {
+		return nil, types.NewError(fmt.Errorf("documents is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if len(request.Documents) > 25 {
+		return nil, types.NewError(fmt.Errorf("documents exceeds max items: 25"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	if err := validateRerankMultimodalItem(request.Query, "query"); err != nil {
+		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	for idx, document := range request.Documents {
+		if err := validateRerankMultimodalItem(document, fmt.Sprintf("documents[%d]", idx)); err != nil {
+			return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+	}
+	return request, nil
+}
+
+func validateRerankMultimodalItem(item dto.RerankMultimodalItem, field string) error {
+	hasText := item.Text != nil && strings.TrimSpace(*item.Text) != ""
+	hasImage := item.Image != nil && strings.TrimSpace(*item.Image) != ""
+	if hasText == hasImage {
+		return fmt.Errorf("%s must contain exactly one of text or image", field)
+	}
+	return nil
 }
 
 func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.EmbeddingRequest, error) {

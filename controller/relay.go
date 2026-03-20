@@ -44,6 +44,10 @@ func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIErro
 		err = relay.AudioHelper(c, info)
 	case relayconstant.RelayModeRerank:
 		err = relay.RerankHelper(c, info)
+	case relayconstant.RelayModeSentenceSimilarity:
+		err = relay.SentenceSimilarityHelper(c, info)
+	case relayconstant.RelayModeRerankMultimodal:
+		err = relay.RerankMultimodalHelper(c, info)
 	case relayconstant.RelayModeEmbeddings:
 		err = relay.EmbeddingHelper(c, info)
 	case relayconstant.RelayModeResponses, relayconstant.RelayModeResponsesCompact:

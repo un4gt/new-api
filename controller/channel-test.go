@@ -188,6 +188,10 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 			relayFormat = types.RelayFormatOpenAIImage
 		case constant.EndpointTypeEmbeddings:
 			relayFormat = types.RelayFormatEmbedding
+		case constant.EndpointTypeSentenceSimilarity:
+			relayFormat = types.RelayFormatSentenceSimilarity
+		case constant.EndpointTypeRerankMultimodal:
+			relayFormat = types.RelayFormatRerankMultimodal
 		default:
 			relayFormat = types.RelayFormatOpenAI
 		}
@@ -208,6 +212,12 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 		}
 		if c.Request.URL.Path == "/v1/rerank" || c.Request.URL.Path == "/rerank" {
 			relayFormat = types.RelayFormatRerank
+		}
+		if c.Request.URL.Path == "/v1/sentence-similarity" || c.Request.URL.Path == "/sentence-similarity" {
+			relayFormat = types.RelayFormatSentenceSimilarity
+		}
+		if c.Request.URL.Path == "/v1/rerank/multimodal" || c.Request.URL.Path == "/rerank/multimodal" {
+			relayFormat = types.RelayFormatRerankMultimodal
 		}
 		if c.Request.URL.Path == "/v1/responses" {
 			relayFormat = types.RelayFormatOpenAIResponses
@@ -316,6 +326,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 				newAPIError: types.NewError(errors.New("invalid rerank request type"), types.ErrorCodeConvertRequestFailed),
 			}
 		}
+	case relayconstant.RelayModeSentenceSimilarity, relayconstant.RelayModeRerankMultimodal:
+		// 这两个端点使用请求原样透传，不依赖通用 adaptor 转换接口
+		convertedRequest = request
 	case relayconstant.RelayModeResponses:
 		// Response 请求 - request 已经是正确的类型
 		if responseReq, ok := request.(*dto.OpenAIResponsesRequest); ok {
@@ -625,6 +638,35 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 				Query:     "What is Deep Learning?",
 				Documents: []any{"Deep Learning is a subset of machine learning.", "Machine learning is a field of artificial intelligence."},
 				TopN:      lo.ToPtr(2),
+			}
+		case constant.EndpointTypeSentenceSimilarity:
+			normalize := true
+			return &dto.SentenceSimilarityRequest{
+				Model: model,
+				Inputs: dto.SentenceSimilarityInputs{
+					SourceSentence: "What is Deep Learning?",
+					Sentences: []string{
+						"Deep Learning is a subset of machine learning.",
+						"Large language models can be used for reranking tasks.",
+					},
+				},
+				Normalize: &normalize,
+			}
+		case constant.EndpointTypeRerankMultimodal:
+			queryText := "find the most relevant content"
+			docText := "a short paragraph about deep learning"
+			docText2 := "a sentence about weather forecast"
+			returnDocs := true
+			return &dto.RerankMultimodalRequest{
+				Model: model,
+				Query: dto.RerankMultimodalItem{
+					Text: &queryText,
+				},
+				Documents: []dto.RerankMultimodalItem{
+					{Text: &docText},
+					{Text: &docText2},
+				},
+				ReturnDocuments: &returnDocs,
 			}
 		case constant.EndpointTypeOpenAIResponse:
 			// 返回 OpenAIResponsesRequest

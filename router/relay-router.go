@@ -41,6 +41,12 @@ func SetRelayRouter(router *gin.Engine) {
 		relayV1Router.POST("/rerank", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatRerank)
 		})
+		relayV1Router.POST("/sentence-similarity", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatSentenceSimilarity)
+		})
+		relayV1Router.POST("/rerank/multimodal", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatRerankMultimodal)
+		})
 	}
 
 	// Minimal build: expose Gemini-compatible embedContent endpoints only for embeddings use cases.

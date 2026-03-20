@@ -357,6 +357,20 @@ func GenRelayInfoRerank(c *gin.Context, request *dto.RerankRequest) *RelayInfo {
 	return info
 }
 
+func GenRelayInfoSentenceSimilarity(c *gin.Context, request *dto.SentenceSimilarityRequest) *RelayInfo {
+	info := genBaseRelayInfo(c, request)
+	info.RelayMode = relayconstant.RelayModeSentenceSimilarity
+	info.RelayFormat = types.RelayFormatSentenceSimilarity
+	return info
+}
+
+func GenRelayInfoRerankMultimodal(c *gin.Context, request *dto.RerankMultimodalRequest) *RelayInfo {
+	info := genBaseRelayInfo(c, request)
+	info.RelayMode = relayconstant.RelayModeRerankMultimodal
+	info.RelayFormat = types.RelayFormatRerankMultimodal
+	return info
+}
+
 func GenRelayInfoOpenAIAudio(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatOpenAIAudio
@@ -540,6 +554,18 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 			break
 		}
 		err = errors.New("request is not a RerankRequest")
+	case types.RelayFormatSentenceSimilarity:
+		if request, ok := request.(*dto.SentenceSimilarityRequest); ok {
+			info = GenRelayInfoSentenceSimilarity(c, request)
+			break
+		}
+		err = errors.New("request is not a SentenceSimilarityRequest")
+	case types.RelayFormatRerankMultimodal:
+		if request, ok := request.(*dto.RerankMultimodalRequest); ok {
+			info = GenRelayInfoRerankMultimodal(c, request)
+			break
+		}
+		err = errors.New("request is not a RerankMultimodalRequest")
 	case types.RelayFormatGemini:
 		info = GenRelayInfoGemini(c, request)
 	case types.RelayFormatEmbedding:

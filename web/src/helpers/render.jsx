@@ -382,6 +382,8 @@ export function getChannelIcon(channelType) {
       return <Dify.Color size={iconSize} />;
     case 38: // Jina
       return <Jina size={iconSize} />;
+    case 58: // Moark
+      return <SiGitea size={iconSize} />;
     case 40: // SiliconCloud
       return <SiliconCloud.Color size={iconSize} />;
     case 42: // Mistral AI
