@@ -56,30 +56,27 @@ func geminiEmbedContentHelper(c *gin.Context, info *relaycommon.RelayInfo) (newA
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
-	// This endpoint is reserved for gemini-embedding-2-preview multimodal embeddings.
-	if info.UpstreamModelName != "gemini-embedding-2-preview" {
-		return types.NewErrorWithStatusCode(
-			fmt.Errorf("model %q is not supported on :embedContent; use /v1/embeddings for text embeddings or switch to gemini-embedding-2-preview", info.UpstreamModelName),
-			types.ErrorCodeInvalidRequest,
-			http.StatusBadRequest,
-			types.ErrOptionWithSkipRetry(),
-		)
-	}
+	// gemini-embedding-2-preview uses additional multimodal constraints and local validations.
+	counts := &embedContentMediaCounts{}
+	if info.UpstreamModelName == "gemini-embedding-2-preview" {
+		var newAPIError *types.NewAPIError
+		counts, newAPIError = validateAndNormalizeEmbedding2EmbedContentRequest(c, req)
+		if newAPIError != nil {
+			return newAPIError
+		}
 
-	counts, newAPIError := validateAndNormalizeEmbedding2EmbedContentRequest(c, req)
-	if newAPIError != nil {
-		return newAPIError
+		logger.LogDebug(c, fmt.Sprintf("Gemini embedContent request prepared: model=%s parts=%d images=%d docs=%d videos=%d audios=%d max_tokens=%d",
+			info.UpstreamModelName,
+			len(req.Content.Parts),
+			counts.Images,
+			counts.Docs,
+			counts.Videos,
+			counts.Audios,
+			embedding2MaxInputTokens,
+		))
+	} else {
+		logger.LogDebug(c, fmt.Sprintf("Gemini embedContent request prepared: model=%s parts=%d", info.UpstreamModelName, len(req.Content.Parts)))
 	}
-
-	logger.LogDebug(c, fmt.Sprintf("Gemini embedContent request prepared: model=%s parts=%d images=%d docs=%d videos=%d audios=%d max_tokens=%d",
-		info.UpstreamModelName,
-		len(req.Content.Parts),
-		counts.Images,
-		counts.Docs,
-		counts.Videos,
-		counts.Audios,
-		embedding2MaxInputTokens,
-	))
 
 	adaptor := GetAdaptor(info.ApiType)
 	if adaptor == nil {
@@ -169,7 +166,6 @@ func buildEmbedding2EmbedContentUpstreamRequest(info *relaycommon.RelayInfo, req
 	}
 
 	out := &dto.GeminiEmbeddingRequest{
-		Model:   "models/" + info.UpstreamModelName,
 		Content: req.Content,
 	}
 	if taskType != "" {
