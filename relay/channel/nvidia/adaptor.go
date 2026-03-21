@@ -36,7 +36,12 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	if IsNVDinoV2Model(info.UpstreamModelName) {
 		return nvDinoV2InferURL, nil
 	}
-	return fmt.Sprintf("%s/v1/embeddings", info.ChannelBaseUrl), nil
+	baseURL := strings.TrimSpace(info.ChannelBaseUrl)
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		return fmt.Sprintf("%s/embeddings", baseURL), nil
+	}
+	return fmt.Sprintf("%s/v1/embeddings", baseURL), nil
 }
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
@@ -61,11 +66,14 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 	if modelName == "" {
 		modelName = strings.TrimSpace(request.Model)
 	}
-	if !IsSupportedModel(modelName) {
+	canonicalModelName, ok := NormalizeModel(modelName)
+	if !ok {
 		return nil, fmt.Errorf("unsupported Nvidia embedding model: %s", modelName)
 	}
+	info.UpstreamModelName = canonicalModelName
+	request.Model = canonicalModelName
 
-	if !IsNVDinoV2Model(modelName) {
+	if !IsNVDinoV2Model(canonicalModelName) {
 		return request, nil
 	}
 

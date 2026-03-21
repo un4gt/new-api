@@ -116,6 +116,11 @@ var nvidiaModelMetadataDefaults = map[string]struct {
 		Tags:        "NVIDIA,text-to-embedding,embedding,multilingual",
 		Icon:        "SiNvidia",
 	},
+	"baai/bge-m3": {
+		Description: "BGE-M3 embedding model exposed via NVIDIA Build and NVIDIA channel.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,multilingual",
+		Icon:        "SiNvidia",
+	},
 	"llama-nemotron-embed-vl-1b-v2": {
 		Description: "NVIDIA multimodal embedding model for image-text retrieval.",
 		Tags:        "NVIDIA,multimodal-embedding,image-to-embedding,embedding",
@@ -127,6 +132,66 @@ var nvidiaModelMetadataDefaults = map[string]struct {
 		Icon:        "SiNvidia",
 	},
 	"nv-dinov2": {
+		Description: "NVIDIA image embedding model with base64 (<200KB) and NVCF asset_id (>=200KB) input modes.",
+		Tags:        "NVIDIA,image-to-embedding,multimodal-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-nemotron-embed-1b-v2": {
+		Description: "NVIDIA text embedding model for retrieval and semantic similarity.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3_2-nemoretriever-300m-embed-v2": {
+		Description: "NVIDIA text embedding model optimized for retrieval workloads.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3_2-nemoretriever-300m-embed-v1": {
+		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3.2-nv-embedqa-1b-v2": {
+		Description: "NVIDIA text embedding model tuned for embedding-based question answering.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3.2-nv-embedqa-1b-v1": {
+		Description: "NVIDIA text embedding model tuned for embedding-based question answering.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/nv-embedqa-e5-v5": {
+		Description: "NVIDIA text embedding model for retrieval and QA pipelines.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/nv-embed-v1": {
+		Description: "NVIDIA general-purpose text embedding model.",
+		Tags:        "NVIDIA,text-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/nv-embedcode-7b-v1": {
+		Description: "NVIDIA embedding model optimized for code and text retrieval.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,code-retrieval",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/embed-qa-4": {
+		Description: "NVIDIA embedding model optimized for question-answering retrieval.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,qa",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-nemotron-embed-vl-1b-v2": {
+		Description: "NVIDIA multimodal embedding model for image-text retrieval.",
+		Tags:        "NVIDIA,multimodal-embedding,image-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1": {
+		Description: "NVIDIA multimodal embedding model for visual-language retrieval.",
+		Tags:        "NVIDIA,multimodal-embedding,image-to-embedding,embedding",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/nv-dinov2": {
 		Description: "NVIDIA image embedding model with base64 (<200KB) and NVCF asset_id (>=200KB) input modes.",
 		Tags:        "NVIDIA,image-to-embedding,multimodal-embedding,embedding",
 		Icon:        "SiNvidia",

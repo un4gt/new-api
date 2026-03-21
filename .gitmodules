@@ -1,0 +1,3 @@
+[submodule "third_party/llm-metadata"]
+	path = third_party/llm-metadata
+	url = git@github.com:un4gt/llm-metadata.git

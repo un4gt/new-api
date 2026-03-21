@@ -26,6 +26,7 @@ services:
       - SQL_DSN=postgresql://root:123456@postgres:5432/new-api # ⚠️ IMPORTANT: Change the password in production!
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
+      - SYNC_UPSTREAM_BASE=${SYNC_UPSTREAM_BASE:-https://basellm.github.io/llm-metadata} # 自定义上游模型元数据地址（可指向你部署的 llm-metadata 静态站点）
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录 (Whether to enable error log recording)
       - BATCH_UPDATE_ENABLED=true  # 是否启用批量更新 (Whether to enable batch update)
 #      - STREAMING_TIMEOUT=300  # 流模式无响应超时时间，单位秒，默认120秒，如果出现空补全可以尝试改为更大值 （Streaming timeout in seconds, default is 120s. Increase if experiencing empty completions）

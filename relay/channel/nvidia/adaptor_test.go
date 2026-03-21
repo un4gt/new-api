@@ -44,6 +44,32 @@ func TestNvidiaAdaptorGetRequestURL(t *testing.T) {
 		require.Equal(t, "https://integrate.api.nvidia.com/v1/embeddings", url)
 	})
 
+	t.Run("text embedding keeps single /v1 when base url already has v1", func(t *testing.T) {
+		info := &relaycommon.RelayInfo{
+			RelayMode: relayconstant.RelayModeEmbeddings,
+			ChannelMeta: &relaycommon.ChannelMeta{
+				ChannelBaseUrl:    "https://integrate.api.nvidia.com/v1",
+				UpstreamModelName: ModelBgeM3,
+			},
+		}
+		url, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		require.Equal(t, "https://integrate.api.nvidia.com/v1/embeddings", url)
+	})
+
+	t.Run("text embedding trims trailing slash", func(t *testing.T) {
+		info := &relaycommon.RelayInfo{
+			RelayMode: relayconstant.RelayModeEmbeddings,
+			ChannelMeta: &relaycommon.ChannelMeta{
+				ChannelBaseUrl:    "https://integrate.api.nvidia.com/",
+				UpstreamModelName: ModelNvEmbedV1,
+			},
+		}
+		url, err := adaptor.GetRequestURL(info)
+		require.NoError(t, err)
+		require.Equal(t, "https://integrate.api.nvidia.com/v1/embeddings", url)
+	})
+
 	t.Run("nv-dinov2 uses cv infer endpoint", func(t *testing.T) {
 		info := &relaycommon.RelayInfo{
 			RelayMode: relayconstant.RelayModeEmbeddings,
@@ -270,7 +296,7 @@ func TestNVDinoV2EmbeddingHandler(t *testing.T) {
 	require.Equal(t, 9, usage.PromptTokens)
 	require.Equal(t, 9, usage.TotalTokens)
 	require.Contains(t, recorder.Body.String(), "\"object\":\"list\"")
-	require.Contains(t, recorder.Body.String(), "\"model\":\"nv-dinov2\"")
+	require.Contains(t, recorder.Body.String(), "\"model\":\"nvidia/nv-dinov2\"")
 	require.Contains(t, recorder.Body.String(), "\"embedding\":[0.11,0.22]")
 }
 
@@ -335,15 +361,72 @@ func TestNvidiaConvertEmbeddingRequestForTextModelPassThrough(t *testing.T) {
 	emb, ok := out.(dto.EmbeddingRequest)
 	require.True(t, ok)
 	require.Equal(t, ModelNvEmbedV1, emb.Model)
+	require.Equal(t, ModelNvEmbedV1, info.UpstreamModelName)
+}
+
+func TestNvidiaConvertEmbeddingRequestNormalizesOfficialModelAlias(t *testing.T) {
+	t.Parallel()
+
+	adaptor := &Adaptor{}
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeEmbeddings,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			UpstreamModelName: "bge-m3",
+		},
+	}
+	req := dto.EmbeddingRequest{
+		Model: "bge-m3",
+		Input: "hello",
+	}
+
+	out, err := adaptor.ConvertEmbeddingRequest(nil, info, req)
+	require.NoError(t, err)
+	emb, ok := out.(dto.EmbeddingRequest)
+	require.True(t, ok)
+	require.Equal(t, ModelBgeM3, emb.Model)
+	require.Equal(t, ModelBgeM3, info.UpstreamModelName)
 }
 
 func TestNvidiaModelWhitelistLength(t *testing.T) {
 	t.Parallel()
 
-	require.Len(t, ModelList, 10)
+	require.Len(t, ModelList, 13)
 	for _, m := range ModelList {
 		require.Truef(t, IsSupportedModel(m), "model %s should be in whitelist", m)
 	}
+}
+
+func TestNvidiaNormalizeModelAliases(t *testing.T) {
+	t.Parallel()
+
+	t.Run("official prefixed model is supported", func(t *testing.T) {
+		normalized, ok := NormalizeModel("nvidia/nv-embed-v1")
+		require.True(t, ok)
+		require.Equal(t, ModelNvEmbedV1, normalized)
+	})
+
+	t.Run("legacy short model is supported and normalized", func(t *testing.T) {
+		normalized, ok := NormalizeModel("nv-embed-v1")
+		require.True(t, ok)
+		require.Equal(t, ModelNvEmbedV1, normalized)
+	})
+
+	t.Run("baai bge-m3 short alias normalized", func(t *testing.T) {
+		normalized, ok := NormalizeModel("bge-m3")
+		require.True(t, ok)
+		require.Equal(t, ModelBgeM3, normalized)
+	})
+
+	t.Run("underscore and dot variants both map", func(t *testing.T) {
+		normalized, ok := NormalizeModel("nvidia/llama-3.2-nemoretriever-300m-embed-v2")
+		require.True(t, ok)
+		require.Equal(t, ModelLlama32Nemoretriever300MEmbedV2, normalized)
+	})
+
+	t.Run("unsupported model returns false", func(t *testing.T) {
+		_, ok := NormalizeModel("text-embedding-3-large")
+		require.False(t, ok)
+	})
 }
 
 func TestNvidiaParseImageSource(t *testing.T) {
