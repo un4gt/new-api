@@ -35,6 +35,7 @@ module.exports = {
             '',
           ],
         ],
+        'no-undef': 'error',
         'no-multiple-empty-lines': ['error', { max: 1 }],
       },
     },

@@ -85,7 +85,7 @@ const UsersPage = () => {
               color={viewMode === USER_VIEW_MODES.ALL ? 'red' : 'grey'}
               shape='circle'
             >
-              {viewMode === USER_VIEW_MODES.ALL ? userCount : '-'}
+              {viewMode === USER_VIEW_MODES.ALL ? usersData.userCount : '-'}
             </Tag>
           </span>
         }
@@ -99,7 +99,7 @@ const UsersPage = () => {
               color={viewMode === USER_VIEW_MODES.BLOCKED ? 'red' : 'grey'}
               shape='circle'
             >
-              {viewMode === USER_VIEW_MODES.BLOCKED ? userCount : '-'}
+              {viewMode === USER_VIEW_MODES.BLOCKED ? usersData.userCount : '-'}
             </Tag>
           </span>
         }
