@@ -49,6 +49,7 @@ const UsersTable = (usersData) => {
     refresh,
     resetUserPasskey,
     resetUserTwoFA,
+    isBlockedView,
     t,
   } = usersData;
 
@@ -124,6 +125,7 @@ const UsersTable = (usersData) => {
   const columns = useMemo(() => {
     return getUsersColumns({
       t,
+      isBlockedView,
       setEditingUser,
       setShowEditUser,
       showPromoteModal: showPromoteUserModal,
@@ -135,6 +137,7 @@ const UsersTable = (usersData) => {
     });
   }, [
     t,
+    isBlockedView,
     setEditingUser,
     setShowEditUser,
     showPromoteUserModal,

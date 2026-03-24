@@ -28,6 +28,7 @@ type User struct {
 	DisplayName      string         `json:"display_name" gorm:"index" validate:"max=20"`
 	Role             int            `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int            `json:"status" gorm:"type:int;default:1"` // enabled, disabled
+	DisabledAt       int64          `json:"disabled_at" gorm:"type:bigint;default:0;column:disabled_at;index"`
 	Email            string         `json:"email" gorm:"index" validate:"max=50"`
 	GitHubId         string         `json:"github_id" gorm:"column:github_id;index"`
 	DiscordId        string         `json:"discord_id" gorm:"column:discord_id;index"`
@@ -188,7 +189,17 @@ func GetMaxUserId() int {
 	return user.Id
 }
 
-func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err error) {
+func applyUserListFilters(query *gorm.DB, status *int, excludeDeleted bool) *gorm.DB {
+	if status != nil {
+		query = query.Where("status = ?", *status)
+	}
+	if excludeDeleted {
+		query = query.Where("deleted_at IS NULL")
+	}
+	return query
+}
+
+func GetAllUsers(pageInfo *common.PageInfo, status *int, excludeDeleted bool) (users []*User, total int64, err error) {
 	// Start transaction
 	tx := DB.Begin()
 	if tx.Error != nil {
@@ -200,15 +211,17 @@ func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err err
 		}
 	}()
 
+	query := applyUserListFilters(tx.Unscoped().Model(&User{}), status, excludeDeleted)
+
 	// Get total count within transaction
-	err = tx.Unscoped().Model(&User{}).Count(&total).Error
+	err = query.Count(&total).Error
 	if err != nil {
 		tx.Rollback()
 		return nil, 0, err
 	}
 
 	// Get paginated users within same transaction
-	err = tx.Unscoped().Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Omit("password").Find(&users).Error
+	err = query.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Omit("password").Find(&users).Error
 	if err != nil {
 		tx.Rollback()
 		return nil, 0, err
@@ -222,7 +235,7 @@ func GetAllUsers(pageInfo *common.PageInfo) (users []*User, total int64, err err
 	return users, total, nil
 }
 
-func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, int64, error) {
+func SearchUsers(keyword string, group string, startIdx int, num int, status *int, excludeDeleted bool) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -239,7 +252,7 @@ func SearchUsers(keyword string, group string, startIdx int, num int) ([]*User, 
 	}()
 
 	// 构建基础查询
-	query := tx.Unscoped().Model(&User{})
+	query := applyUserListFilters(tx.Unscoped().Model(&User{}), status, excludeDeleted)
 
 	// 构建搜索条件
 	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"

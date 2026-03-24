@@ -23,6 +23,11 @@ import { API, showError, showSuccess } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
 
+export const USER_VIEW_MODES = {
+  ALL: 'all',
+  BLOCKED: 'blocked',
+};
+
 export const useUsersData = () => {
   const { t } = useTranslation();
   const [compactMode, setCompactMode] = useTableCompactMode('users');
@@ -35,6 +40,7 @@ export const useUsersData = () => {
   const [searching, setSearching] = useState(false);
   const [groupOptions, setGroupOptions] = useState([]);
   const [userCount, setUserCount] = useState(0);
+  const [viewMode, setViewMode] = useState(USER_VIEW_MODES.ALL);
 
   // Modal states
   const [showAddUser, setShowAddUser] = useState(false);
@@ -51,6 +57,8 @@ export const useUsersData = () => {
 
   // Form API reference
   const [formApi, setFormApi] = useState(null);
+
+  const isBlockedView = viewMode === USER_VIEW_MODES.BLOCKED;
 
   // Get form values helper function
   const getFormValues = () => {
@@ -70,9 +78,37 @@ export const useUsersData = () => {
   };
 
   // Load users data
+  const buildUsersQuery = (
+    startIdx,
+    pageSize,
+    searchKeyword = '',
+    searchGroup = '',
+  ) => {
+    const params = new URLSearchParams({
+      p: String(startIdx),
+      page_size: String(pageSize),
+    });
+
+    if (isBlockedView) {
+      params.set('status', '2');
+      params.set('exclude_deleted', 'true');
+    }
+
+    if (searchKeyword !== '') {
+      params.set('keyword', searchKeyword);
+    }
+
+    if (searchGroup !== '') {
+      params.set('group', searchGroup);
+    }
+
+    return params.toString();
+  };
+
   const loadUsers = async (startIdx, pageSize) => {
     setLoading(true);
-    const res = await API.get(`/api/user/?p=${startIdx}&page_size=${pageSize}`);
+    const query = buildUsersQuery(startIdx, pageSize);
+    const res = await API.get(`/api/user/?${query}`);
     const { success, message, data } = res.data;
     if (success) {
       const newPageData = data.items;
@@ -105,9 +141,13 @@ export const useUsersData = () => {
       return;
     }
     setSearching(true);
-    const res = await API.get(
-      `/api/user/search?keyword=${searchKeyword}&group=${searchGroup}&p=${startIdx}&page_size=${pageSize}`,
+    const query = buildUsersQuery(
+      startIdx,
+      pageSize,
+      searchKeyword,
+      searchGroup,
     );
+    const res = await API.get(`/api/user/search?${query}`);
     const { success, message, data } = res.data;
     if (success) {
       const newPageData = data.items;
@@ -136,15 +176,31 @@ export const useUsersData = () => {
       const user = res.data.data;
 
       // Create a new array and new object to ensure React detects changes
-      const newUsers = users.map((u) => {
+      let newUsers = users.map((u) => {
         if (u.id === userId) {
           if (action === 'delete') {
             return { ...u, DeletedAt: new Date() };
           }
-          return { ...u, status: user.status, role: user.role };
+          return {
+            ...u,
+            status: user.status,
+            role: user.role,
+            disabled_at: user.disabled_at || 0,
+          };
         }
         return u;
       });
+
+      // In blocked list view, enabled/deleted users should disappear immediately.
+      if (isBlockedView && (action === 'enable' || action === 'delete')) {
+        newUsers = newUsers.filter(
+          (u) =>
+            u.id !== userId &&
+            u.status === 2 &&
+            (u.DeletedAt === null || u.DeletedAt === undefined),
+        );
+        setUserCount((count) => Math.max(0, count - 1));
+      }
 
       setUsers(newUsers);
     } else {
@@ -266,13 +322,19 @@ export const useUsersData = () => {
 
   // Initialize data on component mount
   useEffect(() => {
-    loadUsers(0, pageSize)
-      .then()
-      .catch((reason) => {
-        showError(reason);
-      });
     fetchGroups().then();
   }, []);
+
+  useEffect(() => {
+    setActivePage(1);
+    const nextPage = 1;
+    const { searchKeyword, searchGroup } = getFormValues();
+    if (searchKeyword === '' && searchGroup === '') {
+      loadUsers(nextPage, pageSize).then();
+    } else {
+      searchUsers(nextPage, pageSize, searchKeyword, searchGroup).then();
+    }
+  }, [viewMode]);
 
   return {
     // Data state
@@ -281,6 +343,8 @@ export const useUsersData = () => {
     activePage,
     pageSize,
     userCount,
+    viewMode,
+    isBlockedView,
     searching,
     groupOptions,
 
@@ -300,6 +364,7 @@ export const useUsersData = () => {
     // UI state
     compactMode,
     setCompactMode,
+    setViewMode,
 
     // Actions
     loadUsers,

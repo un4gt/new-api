@@ -227,7 +227,17 @@ func Register(c *gin.Context) {
 
 func GetAllUsers(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-	users, total, err := model.GetAllUsers(pageInfo)
+	var statusFilter *int
+	if statusStr := strings.TrimSpace(c.Query("status")); statusStr != "" {
+		status, convErr := strconv.Atoi(statusStr)
+		if convErr != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		statusFilter = &status
+	}
+	excludeDeleted := strings.EqualFold(c.Query("exclude_deleted"), "true")
+	users, total, err := model.GetAllUsers(pageInfo, statusFilter, excludeDeleted)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -244,7 +254,17 @@ func SearchUsers(c *gin.Context) {
 	keyword := c.Query("keyword")
 	group := c.Query("group")
 	pageInfo := common.GetPageQuery(c)
-	users, total, err := model.SearchUsers(keyword, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	var statusFilter *int
+	if statusStr := strings.TrimSpace(c.Query("status")); statusStr != "" {
+		status, convErr := strconv.Atoi(statusStr)
+		if convErr != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		statusFilter = &status
+	}
+	excludeDeleted := strings.EqualFold(c.Query("exclude_deleted"), "true")
+	users, total, err := model.SearchUsers(keyword, group, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), statusFilter, excludeDeleted)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -823,12 +843,14 @@ func ManageUser(c *gin.Context) {
 	switch req.Action {
 	case "disable":
 		user.Status = common.UserStatusDisabled
+		user.DisabledAt = common.GetTimestamp()
 		if user.Role == common.RoleRootUser {
 			common.ApiErrorI18n(c, i18n.MsgUserCannotDisableRootUser)
 			return
 		}
 	case "enable":
 		user.Status = common.UserStatusEnabled
+		user.DisabledAt = 0
 	case "delete":
 		if user.Role == common.RoleRootUser {
 			common.ApiErrorI18n(c, i18n.MsgUserCannotDeleteRootUser)
@@ -868,8 +890,9 @@ func ManageUser(c *gin.Context) {
 		return
 	}
 	clearUser := model.User{
-		Role:   user.Role,
-		Status: user.Status,
+		Role:       user.Role,
+		Status:     user.Status,
+		DisabledAt: user.DisabledAt,
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

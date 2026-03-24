@@ -29,7 +29,12 @@ import {
   Dropdown,
 } from '@douyinfe/semi-ui';
 import { IconMore } from '@douyinfe/semi-icons';
-import { renderGroup, renderNumber, renderQuota } from '../../../helpers';
+import {
+  renderGroup,
+  renderNumber,
+  renderQuota,
+  timestamp2string,
+} from '../../../helpers';
 
 /**
  * Render user role
@@ -193,6 +198,13 @@ const renderInviteInfo = (text, record, t) => {
   );
 };
 
+const renderDisabledTime = (disabledAt) => {
+  if (!disabledAt || disabledAt <= 0) {
+    return '-';
+  }
+  return timestamp2string(disabledAt);
+};
+
 /**
  * Render operations column
  */
@@ -291,6 +303,7 @@ const renderOperations = (
  */
 export const getUsersColumns = ({
   t,
+  isBlockedView,
   setEditingUser,
   setShowEditUser,
   showPromoteModal,
@@ -300,7 +313,7 @@ export const getUsersColumns = ({
   showResetPasskeyModal,
   showResetTwoFAModal,
 }) => {
-  return [
+  const columns = [
     {
       title: 'ID',
       dataIndex: 'id',
@@ -335,6 +348,15 @@ export const getUsersColumns = ({
         return <div>{renderRole(text, t)}</div>;
       },
     },
+    ...(isBlockedView
+      ? [
+          {
+            title: t('被禁用时间'),
+            dataIndex: 'disabled_at',
+            render: (text) => <div>{renderDisabledTime(text)}</div>,
+          },
+        ]
+      : []),
     {
       title: t('邀请信息'),
       dataIndex: 'invite',
@@ -359,4 +381,6 @@ export const getUsersColumns = ({
         }),
     },
   ];
+
+  return columns;
 };

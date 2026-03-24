@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { Tabs, Tag } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import UsersTable from './UsersTable';
 import UsersActions from './UsersActions';
@@ -25,7 +26,10 @@ import UsersFilters from './UsersFilters';
 import UsersDescription from './UsersDescription';
 import AddUserModal from './modals/AddUserModal';
 import EditUserModal from './modals/EditUserModal';
-import { useUsersData } from '../../../hooks/users/useUsersData';
+import {
+  useUsersData,
+  USER_VIEW_MODES,
+} from '../../../hooks/users/useUsersData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
 
@@ -57,10 +61,51 @@ const UsersPage = () => {
     // Description state
     compactMode,
     setCompactMode,
+    viewMode,
+    setViewMode,
+    isBlockedView,
 
     // Translation
     t,
   } = usersData;
+
+  const usersTabs = (
+    <Tabs
+      type='card'
+      activeKey={viewMode}
+      onChange={(key) => setViewMode(key)}
+      className='mb-2'
+    >
+      <Tabs.TabPane
+        itemKey={USER_VIEW_MODES.ALL}
+        tab={
+          <span className='flex items-center gap-2'>
+            {t('用户管理')}
+            <Tag
+              color={viewMode === USER_VIEW_MODES.ALL ? 'red' : 'grey'}
+              shape='circle'
+            >
+              {viewMode === USER_VIEW_MODES.ALL ? userCount : '-'}
+            </Tag>
+          </span>
+        }
+      />
+      <Tabs.TabPane
+        itemKey={USER_VIEW_MODES.BLOCKED}
+        tab={
+          <span className='flex items-center gap-2'>
+            {t('屏蔽用户管理')}
+            <Tag
+              color={viewMode === USER_VIEW_MODES.BLOCKED ? 'red' : 'grey'}
+              shape='circle'
+            >
+              {viewMode === USER_VIEW_MODES.BLOCKED ? userCount : '-'}
+            </Tag>
+          </span>
+        }
+      />
+    </Tabs>
+  );
 
   return (
     <>
@@ -78,14 +123,16 @@ const UsersPage = () => {
       />
 
       <CardPro
-        type='type1'
+        type='type3'
         descriptionArea={
           <UsersDescription
             compactMode={compactMode}
             setCompactMode={setCompactMode}
+            isBlockedView={isBlockedView}
             t={t}
           />
         }
+        tabsArea={usersTabs}
         actionsArea={
           <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
             <UsersActions setShowAddUser={setShowAddUser} t={t} />
