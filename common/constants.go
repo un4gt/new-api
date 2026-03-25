@@ -15,7 +15,6 @@ var Version = "v0.0.0"            // this hard coding will be replaced automatic
 var SystemName = "New API"
 var Footer = ""
 var Logo = ""
-var TopUpLink = ""
 
 // var ChatLink = ""
 // var ChatLink2 = ""
@@ -101,8 +100,6 @@ var TelegramBotToken = ""
 var TelegramBotName = ""
 
 var QuotaForNewUser = 0
-var QuotaForInviter = 0
-var QuotaForInvitee = 0
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

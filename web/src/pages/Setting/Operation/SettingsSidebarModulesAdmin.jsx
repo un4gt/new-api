@@ -215,7 +215,7 @@ export default function SettingsSidebarModulesAdmin(props) {
       title: t('个人中心区域'),
       description: t('用户个人功能'),
       modules: [
-        { key: 'topup', title: t('钱包管理'), description: t('余额充值管理') },
+        { key: 'topup', title: t('兑换码'), description: t('兑换码充值') },
         {
           key: 'personal',
           title: t('个人设置'),

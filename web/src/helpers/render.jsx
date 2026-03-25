@@ -132,7 +132,7 @@ export function getLucideIcon(key, selected = false) {
     case 'task':
       return <CheckSquare {...commonProps} color={iconColor} />;
     case 'topup':
-      return <CreditCard {...commonProps} color={iconColor} />;
+      return <Gift {...commonProps} color={iconColor} />;
     case 'channel':
       return <Layers {...commonProps} color={iconColor} />;
     case 'redemption':

@@ -67,7 +67,6 @@ func GetStatus(c *gin.Context) {
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
-		"top_up_link":                 common.TopUpLink,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
@@ -89,8 +88,6 @@ func GetStatus(c *gin.Context) {
 
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
 		"price":             operation_setting.Price,
-		"stripe_unit_price": setting.StripeUnitPrice,
-
 		// 面板启用开关
 		"announcements_enabled": cs.AnnouncementsEnabled,
 		"faq_enabled":           cs.FAQEnabled,

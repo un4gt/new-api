@@ -19,6 +19,36 @@ type Option struct {
 	Value string `json:"value"`
 }
 
+var retiredOptionKeys = map[string]struct{}{
+	"TopUpLink":                       {},
+	"QuotaForInviter":                 {},
+	"QuotaForInvitee":                 {},
+	"PayAddress":                      {},
+	"CustomCallbackAddress":           {},
+	"EpayId":                          {},
+	"EpayKey":                         {},
+	"MinTopUp":                        {},
+	"TopupGroupRatio":                 {},
+	"PayMethods":                      {},
+	"payment_setting.amount_options":  {},
+	"payment_setting.amount_discount": {},
+	"StripeApiSecret":                 {},
+	"StripeWebhookSecret":             {},
+	"StripePriceId":                   {},
+	"StripeUnitPrice":                 {},
+	"StripeMinTopUp":                  {},
+	"StripePromotionCodesEnabled":     {},
+	"CreemApiKey":                     {},
+	"CreemProducts":                   {},
+	"CreemTestMode":                   {},
+	"CreemWebhookSecret":              {},
+}
+
+func IsRetiredOptionKey(key string) bool {
+	_, ok := retiredOptionKeys[key]
+	return ok
+}
+
 func AllOption() ([]*Option, error) {
 	var options []*Option
 	var err error
@@ -72,28 +102,11 @@ func InitOptionMap() {
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
 	common.OptionMap["WorkerAllowHttpImageRequestEnabled"] = strconv.FormatBool(system_setting.WorkerAllowHttpImageRequestEnabled)
-	common.OptionMap["PayAddress"] = ""
-	common.OptionMap["CustomCallbackAddress"] = ""
-	common.OptionMap["EpayId"] = ""
-	common.OptionMap["EpayKey"] = ""
 	common.OptionMap["Price"] = strconv.FormatFloat(operation_setting.Price, 'f', -1, 64)
 	common.OptionMap["USDExchangeRate"] = strconv.FormatFloat(operation_setting.USDExchangeRate, 'f', -1, 64)
-	common.OptionMap["MinTopUp"] = strconv.Itoa(operation_setting.MinTopUp)
-	common.OptionMap["StripeMinTopUp"] = strconv.Itoa(setting.StripeMinTopUp)
-	common.OptionMap["StripeApiSecret"] = setting.StripeApiSecret
-	common.OptionMap["StripeWebhookSecret"] = setting.StripeWebhookSecret
-	common.OptionMap["StripePriceId"] = setting.StripePriceId
-	common.OptionMap["StripeUnitPrice"] = strconv.FormatFloat(setting.StripeUnitPrice, 'f', -1, 64)
-	common.OptionMap["StripePromotionCodesEnabled"] = strconv.FormatBool(setting.StripePromotionCodesEnabled)
-	common.OptionMap["CreemApiKey"] = setting.CreemApiKey
-	common.OptionMap["CreemProducts"] = setting.CreemProducts
-	common.OptionMap["CreemTestMode"] = strconv.FormatBool(setting.CreemTestMode)
-	common.OptionMap["CreemWebhookSecret"] = setting.CreemWebhookSecret
-	common.OptionMap["TopupGroupRatio"] = common.TopupGroupRatio2JSONString()
 	common.OptionMap["Chats"] = setting.Chats2JsonString()
 	common.OptionMap["AutoGroups"] = setting.AutoGroups2JsonString()
 	common.OptionMap["DefaultUseAutoGroup"] = strconv.FormatBool(setting.DefaultUseAutoGroup)
-	common.OptionMap["PayMethods"] = operation_setting.PayMethods2JsonString()
 	common.OptionMap["GitHubClientId"] = ""
 	common.OptionMap["GitHubClientSecret"] = ""
 	common.OptionMap["TelegramBotToken"] = ""
@@ -104,8 +117,6 @@ func InitOptionMap() {
 	common.OptionMap["TurnstileSiteKey"] = ""
 	common.OptionMap["TurnstileSecretKey"] = ""
 	common.OptionMap["QuotaForNewUser"] = strconv.Itoa(common.QuotaForNewUser)
-	common.OptionMap["QuotaForInviter"] = strconv.Itoa(common.QuotaForInviter)
-	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
@@ -123,7 +134,6 @@ func InitOptionMap() {
 	common.OptionMap["ImageRatio"] = ratio_setting.ImageRatio2JSONString()
 	common.OptionMap["AudioRatio"] = ratio_setting.AudioRatio2JSONString()
 	common.OptionMap["AudioCompletionRatio"] = ratio_setting.AudioCompletionRatio2JSONString()
-	common.OptionMap["TopUpLink"] = common.TopUpLink
 	//common.OptionMap["ChatLink"] = common.ChatLink
 	//common.OptionMap["ChatLink2"] = common.ChatLink2
 	common.OptionMap["QuotaPerUnit"] = strconv.FormatFloat(common.QuotaPerUnit, 'f', -1, 64)
@@ -152,6 +162,9 @@ func InitOptionMap() {
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()
 	for k, v := range modelConfigs {
+		if IsRetiredOptionKey(k) {
+			continue
+		}
 		common.OptionMap[k] = v
 	}
 
@@ -178,6 +191,9 @@ func SyncOptions(frequency int) {
 }
 
 func UpdateOption(key string, value string) error {
+	if IsRetiredOptionKey(key) {
+		return nil
+	}
 	// Save to database first
 	option := Option{
 		Key: key,
@@ -194,6 +210,9 @@ func UpdateOption(key string, value string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
+	if IsRetiredOptionKey(key) {
+		return nil
+	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
@@ -320,46 +339,14 @@ func updateOptionMap(key string, value string) (err error) {
 		system_setting.WorkerUrl = value
 	case "WorkerValidKey":
 		system_setting.WorkerValidKey = value
-	case "PayAddress":
-		operation_setting.PayAddress = value
 	case "Chats":
 		err = setting.UpdateChatsByJsonString(value)
 	case "AutoGroups":
 		err = setting.UpdateAutoGroupsByJsonString(value)
-	case "CustomCallbackAddress":
-		operation_setting.CustomCallbackAddress = value
-	case "EpayId":
-		operation_setting.EpayId = value
-	case "EpayKey":
-		operation_setting.EpayKey = value
 	case "Price":
 		operation_setting.Price, _ = strconv.ParseFloat(value, 64)
 	case "USDExchangeRate":
 		operation_setting.USDExchangeRate, _ = strconv.ParseFloat(value, 64)
-	case "MinTopUp":
-		operation_setting.MinTopUp, _ = strconv.Atoi(value)
-	case "StripeApiSecret":
-		setting.StripeApiSecret = value
-	case "StripeWebhookSecret":
-		setting.StripeWebhookSecret = value
-	case "StripePriceId":
-		setting.StripePriceId = value
-	case "StripeUnitPrice":
-		setting.StripeUnitPrice, _ = strconv.ParseFloat(value, 64)
-	case "StripeMinTopUp":
-		setting.StripeMinTopUp, _ = strconv.Atoi(value)
-	case "StripePromotionCodesEnabled":
-		setting.StripePromotionCodesEnabled = value == "true"
-	case "CreemApiKey":
-		setting.CreemApiKey = value
-	case "CreemProducts":
-		setting.CreemProducts = value
-	case "CreemTestMode":
-		setting.CreemTestMode = value == "true"
-	case "CreemWebhookSecret":
-		setting.CreemWebhookSecret = value
-	case "TopupGroupRatio":
-		err = common.UpdateTopupGroupRatioByJSONString(value)
 	case "GitHubClientId":
 		common.GitHubClientId = value
 	case "GitHubClientSecret":
@@ -392,10 +379,6 @@ func updateOptionMap(key string, value string) (err error) {
 		common.TurnstileSecretKey = value
 	case "QuotaForNewUser":
 		common.QuotaForNewUser, _ = strconv.Atoi(value)
-	case "QuotaForInviter":
-		common.QuotaForInviter, _ = strconv.Atoi(value)
-	case "QuotaForInvitee":
-		common.QuotaForInvitee, _ = strconv.Atoi(value)
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":
@@ -436,8 +419,6 @@ func updateOptionMap(key string, value string) (err error) {
 		err = ratio_setting.UpdateAudioRatioByJSONString(value)
 	case "AudioCompletionRatio":
 		err = ratio_setting.UpdateAudioCompletionRatioByJSONString(value)
-	case "TopUpLink":
-		common.TopUpLink = value
 	//case "ChatLink":
 	//	common.ChatLink = value
 	//case "ChatLink2":
@@ -456,8 +437,6 @@ func updateOptionMap(key string, value string) (err error) {
 		err = operation_setting.AutomaticRetryStatusCodesFromString(value)
 	case "StreamCacheQueueLength":
 		setting.StreamCacheQueueLength, _ = strconv.Atoi(value)
-	case "PayMethods":
-		err = operation_setting.UpdatePayMethodsByJsonString(value)
 	}
 	return err
 }

@@ -116,11 +116,6 @@ const LoginForm = () => {
   const logo = getLogo();
   const systemName = getSystemName();
 
-  let affCode = new URLSearchParams(window.location.search).get('aff');
-  if (affCode) {
-    localStorage.setItem('aff', affCode);
-  }
-
   const status = useMemo(() => {
     if (statusState?.status) return statusState.status;
     const savedStatus = localStorage.getItem('status');

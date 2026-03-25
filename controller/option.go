@@ -65,6 +65,9 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
+		if model.IsRetiredOptionKey(k) {
+			continue
+		}
 		value := common.Interface2String(v)
 		if strings.HasSuffix(k, "Token") ||
 			strings.HasSuffix(k, "Secret") ||
@@ -109,6 +112,13 @@ func UpdateOption(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"success": false,
 			"message": "无效的参数",
+		})
+		return
+	}
+	if model.IsRetiredOptionKey(option.Key) {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "该设置项已下线",
 		})
 		return
 	}

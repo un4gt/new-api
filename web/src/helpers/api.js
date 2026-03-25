@@ -216,12 +216,7 @@ export const processGroupsData = (data, userGroup) => {
 // 原来components中的utils.js
 
 export async function getOAuthState() {
-  let path = '/api/oauth/state';
-  let affCode = localStorage.getItem('aff');
-  if (affCode && affCode.length > 0) {
-    path += `?aff=${affCode}`;
-  }
-  const res = await API.get(path);
+  const res = await API.get('/api/oauth/state');
   const { success, message, data } = res.data;
   if (success) {
     return data;

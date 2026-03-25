@@ -34,12 +34,9 @@ const OperationSetting = () => {
     /* 额度相关 */
     QuotaForNewUser: 0,
     PreConsumedQuota: 0,
-    QuotaForInviter: 0,
-    QuotaForInvitee: 0,
     'quota_setting.enable_free_model_pre_consume': true,
 
     /* 通用设置 */
-    TopUpLink: '',
     'general_setting.docs_link': '',
     QuotaPerUnit: 0,
     USDExchangeRate: 0,
