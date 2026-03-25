@@ -26,7 +26,7 @@ import { TIME_OPTIONS } from '../../constants/dashboard.constants';
 import { useIsMobile } from '../common/useIsMobile';
 import { useMinimumLoadingTime } from '../common/useMinimumLoadingTime';
 
-export const useDashboardData = (userState, userDispatch, statusState) => {
+export const useDashboardData = (userState, userDispatch) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -76,24 +76,18 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     tpm: [],
   });
 
-  // ========== Uptime 数据 ==========
-  const [uptimeData, setUptimeData] = useState([]);
-  const [uptimeLoading, setUptimeLoading] = useState(false);
-  const [activeUptimeTab, setActiveUptimeTab] = useState('');
+  // ========== Top 用户排行 ==========
+  const [topUsers, setTopUsers] = useState([]);
+  const [topUsersLoading, setTopUsersLoading] = useState(false);
 
   // ========== 常量 ==========
   const now = new Date();
   const isAdminUser = isAdmin();
 
   // ========== Panel enable flags ==========
-  const apiInfoEnabled = statusState?.status?.api_info_enabled ?? true;
-  const announcementsEnabled =
-    statusState?.status?.announcements_enabled ?? true;
-  const faqEnabled = statusState?.status?.faq_enabled ?? true;
-  const uptimeEnabled = statusState?.status?.uptime_kuma_enabled ?? true;
-
-  const hasApiInfoPanel = apiInfoEnabled;
-  const hasInfoPanels = announcementsEnabled || faqEnabled || uptimeEnabled;
+  const announcementsEnabled = true;
+  const faqEnabled = true;
+  const hasInfoPanels = announcementsEnabled || faqEnabled;
 
   // ========== Memoized Values ==========
   const timeOptions = useMemo(
@@ -193,25 +187,24 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     }
   }, [inputs, dataExportDefaultTime, isAdminUser, now]);
 
-  const loadUptimeData = useCallback(async () => {
-    setUptimeLoading(true);
+  const loadTopUsers = useCallback(async () => {
+    if (!isAdminUser) {
+      setTopUsers([]);
+      return;
+    }
+    setTopUsersLoading(true);
     try {
-      const res = await API.get('/api/uptime/status');
+      const res = await API.get('/api/data/users/top?limit=10');
       const { success, message, data } = res.data;
       if (success) {
-        setUptimeData(data || []);
-        if (data && data.length > 0 && !activeUptimeTab) {
-          setActiveUptimeTab(data[0].categoryName);
-        }
+        setTopUsers(Array.isArray(data) ? data : []);
       } else {
         showError(message);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
-      setUptimeLoading(false);
+      setTopUsersLoading(false);
     }
-  }, [activeUptimeTab]);
+  }, [isAdminUser]);
 
   const getUserData = useCallback(async () => {
     let res = await API.get(`/api/user/self`);
@@ -225,9 +218,9 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
 
   const refresh = useCallback(async () => {
     const data = await loadQuotaData();
-    await loadUptimeData();
+    await loadTopUsers();
     return data;
-  }, [loadQuotaData, loadUptimeData]);
+  }, [loadQuotaData, loadTopUsers]);
 
   const handleSearchConfirm = useCallback(
     async (updateChartDataCallback) => {
@@ -288,30 +281,25 @@ export const useDashboardData = (userState, userDispatch, statusState) => {
     trendData,
     setTrendData,
 
-    // Uptime 数据
-    uptimeData,
-    uptimeLoading,
-    activeUptimeTab,
-    setActiveUptimeTab,
+    // Top 用户排行
+    topUsers,
+    topUsersLoading,
 
     // 计算值
     timeOptions,
     performanceMetrics,
     getGreeting,
     isAdminUser,
-    hasApiInfoPanel,
     hasInfoPanels,
-    apiInfoEnabled,
     announcementsEnabled,
     faqEnabled,
-    uptimeEnabled,
 
     // 函数
     handleInputChange,
     showSearchModal,
     handleCloseModal,
     loadQuotaData,
-    loadUptimeData,
+    loadTopUsers,
     getUserData,
     refresh,
     handleSearchConfirm,

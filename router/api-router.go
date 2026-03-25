@@ -21,7 +21,6 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
-		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
@@ -131,7 +130,6 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
-
 		// Minimal build: subscription management removed.
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
@@ -155,9 +153,9 @@ func SetApiRouter(router *gin.Engine) {
 			customOAuthRoute.PUT("/:id", controller.UpdateCustomOAuthProvider)
 			customOAuthRoute.DELETE("/:id", controller.DeleteCustomOAuthProvider)
 		}
-			ratioSyncRoute := apiRouter.Group("/ratio_sync")
-			ratioSyncRoute.Use(middleware.RootAuth())
-			{
+		ratioSyncRoute := apiRouter.Group("/ratio_sync")
+		ratioSyncRoute.Use(middleware.RootAuth())
+		{
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
@@ -251,6 +249,7 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
 		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
+		dataRoute.GET("/users/top", middleware.AdminAuth(), controller.GetTopUserUsageData)
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{

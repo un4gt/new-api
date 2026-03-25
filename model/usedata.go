@@ -21,6 +21,17 @@ type QuotaData struct {
 	Quota     int    `json:"quota" gorm:"default:0"`
 }
 
+type TopUserUsageData struct {
+	Id                int    `json:"id"`
+	Username          string `json:"username"`
+	RemainingQuota    int    `json:"remaining_quota"`
+	TotalQuota        int    `json:"total_quota"`
+	TodayConsumeQuota int    `json:"today_consume_quota"`
+	TodayRequestCount int    `json:"today_request_count"`
+	CallCount         int64  `json:"call_count"`
+	ModelCount        int64  `json:"model_count"`
+}
+
 func UpdateQuotaData() {
 	for {
 		if common.DataExportEnabled {
@@ -125,4 +136,59 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	//err = DB.Table("quota_data").Where("created_at >= ? and created_at <= ?", startTime, endTime).Find(&quotaDatas).Error
 	err = DB.Table("quota_data").Select("model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used, created_at").Where("created_at >= ? and created_at <= ?", startTime, endTime).Group("model_name, created_at").Find(&quotaDatas).Error
 	return quotaDatas, err
+}
+
+func GetTopUserUsageData(limit int) (items []*TopUserUsageData, err error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	now := time.Now()
+	todayStart := time.Date(
+		now.Year(),
+		now.Month(),
+		now.Day(),
+		0,
+		0,
+		0,
+		0,
+		now.Location(),
+	).Unix()
+	nowTimestamp := now.Unix()
+
+	// 全量聚合：用于按调用次数和模型数量排序
+	rankedSubQuery := DB.
+		Table("quota_data").
+		Select("user_id, sum(count) as call_count, count(distinct model_name) as model_count").
+		Group("user_id")
+
+	// 当日聚合：用于展示今日消耗与今日请求次数
+	todaySubQuery := DB.
+		Table("quota_data").
+		Select("user_id, sum(quota) as today_consume_quota, sum(count) as today_request_count").
+		Where("created_at >= ? and created_at <= ?", todayStart, nowTimestamp).
+		Group("user_id")
+
+	err = DB.
+		Table("(?) as ranked", rankedSubQuery).
+		Joins("join users u on u.id = ranked.user_id").
+		Joins("left join (?) as today on today.user_id = ranked.user_id", todaySubQuery).
+		Where("u.deleted_at is null").
+		Select(
+			"u.id as id, " +
+				"u.username as username, " +
+				"u.quota as remaining_quota, " +
+				"(u.quota + u.used_quota) as total_quota, " +
+				"coalesce(today.today_consume_quota, 0) as today_consume_quota, " +
+				"coalesce(today.today_request_count, 0) as today_request_count, " +
+				"ranked.call_count as call_count, " +
+				"ranked.model_count as model_count",
+		).
+		Order("ranked.call_count desc, ranked.model_count desc, u.id asc").
+		Limit(limit).
+		Find(&items).Error
+	return items, err
 }

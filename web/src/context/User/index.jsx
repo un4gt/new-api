@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { reducer, initialState } from './reducer';
-import { normalizeLanguage } from '../../i18n/language';
+import { DEFAULT_LANGUAGE } from '../../i18n/language';
 
 export const UserContext = React.createContext({
   state: initialState,
@@ -31,23 +31,13 @@ export const UserProvider = ({ children }) => {
   const [state, dispatch] = React.useReducer(reducer, initialState);
   const { i18n } = useTranslation();
 
-  // Sync language preference when user data is loaded
+  // Enforce simplified Chinese in single-language mode.
   useEffect(() => {
-    if (state.user?.setting) {
-      try {
-        const settings = JSON.parse(state.user.setting);
-        const normalizedLanguage = normalizeLanguage(settings.language);
-        if (normalizedLanguage && normalizedLanguage !== i18n.language) {
-          i18n.changeLanguage(normalizedLanguage);
-        }
-        if (normalizedLanguage) {
-          localStorage.setItem('i18nextLng', normalizedLanguage);
-        }
-      } catch (e) {
-        // Ignore parse errors
-      }
+    if (i18n.language !== DEFAULT_LANGUAGE) {
+      i18n.changeLanguage(DEFAULT_LANGUAGE);
     }
-  }, [state.user?.setting, i18n]);
+    localStorage.setItem('i18nextLng', DEFAULT_LANGUAGE);
+  }, [i18n, state.user?.id]);
 
   return (
     <UserContext.Provider value={[state, dispatch]}>

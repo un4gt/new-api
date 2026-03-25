@@ -37,11 +37,11 @@ import {
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
-import { normalizeLanguage } from '../../i18n/language';
+import { DEFAULT_LANGUAGE } from '../../i18n/language';
 const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
-  const [userState, userDispatch] = useContext(UserContext);
+  const [, userDispatch] = useContext(UserContext);
   const [, statusDispatch] = useContext(StatusContext);
   const isMobile = useIsMobile();
   const [collapsed, , setCollapsed] = useSidebarCollapsed();
@@ -112,31 +112,11 @@ const PageLayout = () => {
   }, []);
 
   useEffect(() => {
-    let preferredLang;
-
-    if (userState?.user?.setting) {
-      try {
-        const settings = JSON.parse(userState.user.setting);
-        preferredLang = normalizeLanguage(settings.language);
-      } catch (e) {
-        // Ignore parse errors
-      }
+    localStorage.setItem('i18nextLng', DEFAULT_LANGUAGE);
+    if (i18n.language !== DEFAULT_LANGUAGE) {
+      i18n.changeLanguage(DEFAULT_LANGUAGE);
     }
-
-    if (!preferredLang) {
-      const savedLang = localStorage.getItem('i18nextLng');
-      if (savedLang) {
-        preferredLang = normalizeLanguage(savedLang);
-      }
-    }
-
-    if (preferredLang) {
-      localStorage.setItem('i18nextLng', preferredLang);
-      if (preferredLang !== i18n.language) {
-        i18n.changeLanguage(preferredLang);
-      }
-    }
-  }, [i18n, userState?.user?.setting]);
+  }, [i18n]);
 
   return (
     <Layout

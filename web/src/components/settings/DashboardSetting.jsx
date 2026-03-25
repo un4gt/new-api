@@ -20,29 +20,20 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useEffect, useState, useMemo } from 'react';
 import { Card, Spin, Button, Modal } from '@douyinfe/semi-ui';
 import { API, showError, showSuccess, toBoolean } from '../../helpers';
-import SettingsAPIInfo from '../../pages/Setting/Dashboard/SettingsAPIInfo';
 import SettingsAnnouncements from '../../pages/Setting/Dashboard/SettingsAnnouncements';
 import SettingsFAQ from '../../pages/Setting/Dashboard/SettingsFAQ';
-import SettingsUptimeKuma from '../../pages/Setting/Dashboard/SettingsUptimeKuma';
 import SettingsDataDashboard from '../../pages/Setting/Dashboard/SettingsDataDashboard';
 
 const DashboardSetting = () => {
   let [inputs, setInputs] = useState({
-    'console_setting.api_info': '',
     'console_setting.announcements': '',
     'console_setting.faq': '',
-    'console_setting.uptime_kuma_groups': '',
-    'console_setting.api_info_enabled': '',
     'console_setting.announcements_enabled': '',
     'console_setting.faq_enabled': '',
-    'console_setting.uptime_kuma_enabled': '',
 
     // 用于迁移检测的旧键，下个版本会删除
-    ApiInfo: '',
     Announcements: '',
     FAQ: '',
-    UptimeKumaUrl: '',
-    UptimeKumaSlug: '',
 
     /* 数据看板 */
     DataExportEnabled: false,
@@ -90,13 +81,7 @@ const DashboardSetting = () => {
 
   // 用于迁移检测的旧键，下个版本会删除
   const hasLegacyData = useMemo(() => {
-    const legacyKeys = [
-      'ApiInfo',
-      'Announcements',
-      'FAQ',
-      'UptimeKumaUrl',
-      'UptimeKumaSlug',
-    ];
+    const legacyKeys = ['Announcements', 'FAQ'];
     return legacyKeys.some((k) => inputs[k]);
   }, [inputs]);
 
@@ -151,19 +136,9 @@ const DashboardSetting = () => {
           <SettingsAnnouncements options={inputs} refresh={onRefresh} />
         </Card>
 
-        {/* API信息管理 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsAPIInfo options={inputs} refresh={onRefresh} />
-        </Card>
-
         {/* 常见问答管理 */}
         <Card style={{ marginTop: '10px' }}>
           <SettingsFAQ options={inputs} refresh={onRefresh} />
-        </Card>
-
-        {/* Uptime Kuma 监控设置 */}
-        <Card style={{ marginTop: '10px' }}>
-          <SettingsUptimeKuma options={inputs} refresh={onRefresh} />
         </Card>
       </Spin>
     </>

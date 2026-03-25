@@ -51,3 +51,21 @@ func GetUserQuotaDates(c *gin.Context) {
 	})
 	return
 }
+
+func GetTopUserUsageData(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	if limit <= 0 {
+		limit = 10
+	}
+	items, err := model.GetTopUserUsageData(limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    items,
+	})
+	return
+}

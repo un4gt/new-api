@@ -17,24 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
-import { Progress, Divider, Empty } from '@douyinfe/semi-ui';
-import {
-  IllustrationConstruction,
-  IllustrationConstructionDark,
-} from '@douyinfe/semi-illustrations';
-import {
-  timestamp2string,
-  timestamp2string1,
-  isDataCrossYear,
-  copy,
-  showSuccess,
-} from './utils';
+import { timestamp2string, timestamp2string1, isDataCrossYear } from './utils';
 import {
   STORAGE_KEYS,
   DEFAULT_TIME_INTERVALS,
   DEFAULTS,
-  ILLUSTRATION_SIZE,
 } from '../constants/dashboard.constants';
 
 // ========== 时间相关工具函数 ==========
@@ -148,100 +135,6 @@ export const createFormField = (Component, props, FORM_FIELD_PROPS) => (
 );
 
 // ========== 操作处理函数 ==========
-export const handleCopyUrl = async (url, t) => {
-  if (await copy(url)) {
-    showSuccess(t('复制成功'));
-  }
-};
-
-export const handleSpeedTest = (apiUrl) => {
-  const encodedUrl = encodeURIComponent(apiUrl);
-  const speedTestUrl = `https://www.tcptest.cn/http/${encodedUrl}`;
-  window.open(speedTestUrl, '_blank', 'noopener,noreferrer');
-};
-
-// ========== 状态映射函数 ==========
-export const getUptimeStatusColor = (status, uptimeStatusMap) =>
-  uptimeStatusMap[status]?.color || '#8b9aa7';
-
-export const getUptimeStatusText = (status, uptimeStatusMap, t) =>
-  uptimeStatusMap[status]?.text || t('未知');
-
-// ========== 监控列表渲染函数 ==========
-export const renderMonitorList = (
-  monitors,
-  getUptimeStatusColor,
-  getUptimeStatusText,
-  t,
-) => {
-  if (!monitors || monitors.length === 0) {
-    return (
-      <div className='flex justify-center items-center py-4'>
-        <Empty
-          image={<IllustrationConstruction style={ILLUSTRATION_SIZE} />}
-          darkModeImage={
-            <IllustrationConstructionDark style={ILLUSTRATION_SIZE} />
-          }
-          title={t('暂无监控数据')}
-        />
-      </div>
-    );
-  }
-
-  const grouped = {};
-  monitors.forEach((m) => {
-    const g = m.group || '';
-    if (!grouped[g]) grouped[g] = [];
-    grouped[g].push(m);
-  });
-
-  const renderItem = (monitor, idx) => (
-    <div key={idx} className='p-2 hover:bg-white rounded-lg transition-colors'>
-      <div className='flex items-center justify-between mb-1'>
-        <div className='flex items-center gap-2'>
-          <div
-            className='w-2 h-2 rounded-full flex-shrink-0'
-            style={{ backgroundColor: getUptimeStatusColor(monitor.status) }}
-          />
-          <span className='text-sm font-medium text-gray-900'>
-            {monitor.name}
-          </span>
-        </div>
-        <span className='text-xs text-gray-500'>
-          {((monitor.uptime || 0) * 100).toFixed(2)}%
-        </span>
-      </div>
-      <div className='flex items-center gap-2'>
-        <span className='text-xs text-gray-500'>
-          {getUptimeStatusText(monitor.status)}
-        </span>
-        <div className='flex-1'>
-          <Progress
-            percent={(monitor.uptime || 0) * 100}
-            showInfo={false}
-            aria-label={`${monitor.name} uptime`}
-            stroke={getUptimeStatusColor(monitor.status)}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
-  return Object.entries(grouped).map(([gname, list]) => (
-    <div key={gname || 'default'} className='mb-2'>
-      {gname && (
-        <>
-          <div className='text-md font-semibold text-gray-500 px-2 py-1'>
-            {gname}
-          </div>
-          <Divider />
-        </>
-      )}
-      {list.map(renderItem)}
-    </div>
-  ));
-};
-
 // ========== 数据处理函数 ==========
 export const processRawData = (
   data,

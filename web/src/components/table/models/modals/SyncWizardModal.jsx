@@ -112,17 +112,8 @@ const SyncWizardModal = ({ visible, onClose, onConfirm, loading, t }) => {
               aria-label='语言选择'
               name='sync-locale-selection'
             >
-              <Radio value='en' extra='English'>
-                en
-              </Radio>
               <Radio value='zh-CN' extra='简体中文'>
                 zh-CN
-              </Radio>
-              <Radio value='zh-TW' extra='繁體中文'>
-                zh-TW
-              </Radio>
-              <Radio value='ja' extra='日本語'>
-                ja
               </Radio>
             </RadioGroup>
           </div>
