@@ -208,6 +208,10 @@ const Dashboard = () => {
         <TopUsersPanel
           topUsers={dashboardData.topUsers}
           loading={dashboardData.topUsersLoading}
+          topUsersLimit={dashboardData.topUsersLimit}
+          onLimitChange={dashboardData.setTopUsersLimit}
+          topUsersSortBy={dashboardData.topUsersSortBy}
+          onSortByChange={dashboardData.setTopUsersSortBy}
           CARD_PROPS={CARD_PROPS}
           t={dashboardData.t}
         />

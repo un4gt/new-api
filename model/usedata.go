@@ -24,12 +24,8 @@ type QuotaData struct {
 type TopUserUsageData struct {
 	Id                int    `json:"id"`
 	Username          string `json:"username"`
-	RemainingQuota    int    `json:"remaining_quota"`
-	TotalQuota        int    `json:"total_quota"`
 	TodayConsumeQuota int    `json:"today_consume_quota"`
 	TodayRequestCount int    `json:"today_request_count"`
-	CallCount         int64  `json:"call_count"`
-	ModelCount        int64  `json:"model_count"`
 }
 
 func UpdateQuotaData() {
@@ -138,7 +134,7 @@ func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaDat
 	return quotaDatas, err
 }
 
-func GetTopUserUsageData(limit int) (items []*TopUserUsageData, err error) {
+func GetTopUserUsageData(limit int, sortBy string) (items []*TopUserUsageData, err error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -159,36 +155,30 @@ func GetTopUserUsageData(limit int) (items []*TopUserUsageData, err error) {
 	).Unix()
 	nowTimestamp := now.Unix()
 
-	// 全量聚合：用于按调用次数和模型数量排序
-	rankedSubQuery := DB.
-		Table("quota_data").
-		Select("user_id, sum(count) as call_count, count(distinct model_name) as model_count").
-		Group("user_id")
-
-	// 当日聚合：用于展示今日消耗与今日请求次数
 	todaySubQuery := DB.
 		Table("quota_data").
 		Select("user_id, sum(quota) as today_consume_quota, sum(count) as today_request_count").
 		Where("created_at >= ? and created_at <= ?", todayStart, nowTimestamp).
 		Group("user_id")
 
-	err = DB.
-		Table("(?) as ranked", rankedSubQuery).
-		Joins("join users u on u.id = ranked.user_id").
-		Joins("left join (?) as today on today.user_id = ranked.user_id", todaySubQuery).
+	query := DB.
+		Table("(?) as today", todaySubQuery).
+		Joins("join users u on u.id = today.user_id").
 		Where("u.deleted_at is null").
 		Select(
 			"u.id as id, " +
 				"u.username as username, " +
-				"u.quota as remaining_quota, " +
-				"(u.quota + u.used_quota) as total_quota, " +
-				"coalesce(today.today_consume_quota, 0) as today_consume_quota, " +
-				"coalesce(today.today_request_count, 0) as today_request_count, " +
-				"ranked.call_count as call_count, " +
-				"ranked.model_count as model_count",
-		).
-		Order("ranked.call_count desc, ranked.model_count desc, u.id asc").
-		Limit(limit).
-		Find(&items).Error
+				"today.today_consume_quota as today_consume_quota, " +
+				"today.today_request_count as today_request_count",
+		)
+
+	// 默认按今日消耗排序；可切换为按今日请求次数排序。
+	if sortBy == "request_count" {
+		query = query.Order("today.today_request_count desc, today.today_consume_quota desc, u.id asc")
+	} else {
+		query = query.Order("today.today_consume_quota desc, today.today_request_count desc, u.id asc")
+	}
+
+	err = query.Limit(limit).Find(&items).Error
 	return items, err
 }

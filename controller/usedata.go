@@ -57,7 +57,11 @@ func GetTopUserUsageData(c *gin.Context) {
 	if limit <= 0 {
 		limit = 10
 	}
-	items, err := model.GetTopUserUsageData(limit)
+	sortBy := c.DefaultQuery("sort_by", "consume_quota")
+	if sortBy != "consume_quota" && sortBy != "request_count" {
+		sortBy = "consume_quota"
+	}
+	items, err := model.GetTopUserUsageData(limit, sortBy)
 	if err != nil {
 		common.ApiError(c, err)
 		return

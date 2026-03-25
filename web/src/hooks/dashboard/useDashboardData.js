@@ -79,6 +79,8 @@ export const useDashboardData = (userState, userDispatch) => {
   // ========== Top 用户排行 ==========
   const [topUsers, setTopUsers] = useState([]);
   const [topUsersLoading, setTopUsersLoading] = useState(false);
+  const [topUsersLimit, setTopUsersLimit] = useState(10);
+  const [topUsersSortBy, setTopUsersSortBy] = useState('consume_quota');
 
   // ========== 常量 ==========
   const now = new Date();
@@ -194,7 +196,9 @@ export const useDashboardData = (userState, userDispatch) => {
     }
     setTopUsersLoading(true);
     try {
-      const res = await API.get('/api/data/users/top?limit=10');
+      const res = await API.get(
+        `/api/data/users/top?limit=${topUsersLimit}&sort_by=${topUsersSortBy}`,
+      );
       const { success, message, data } = res.data;
       if (success) {
         setTopUsers(Array.isArray(data) ? data : []);
@@ -204,7 +208,7 @@ export const useDashboardData = (userState, userDispatch) => {
     } finally {
       setTopUsersLoading(false);
     }
-  }, [isAdminUser]);
+  }, [isAdminUser, topUsersLimit, topUsersSortBy]);
 
   const getUserData = useCallback(async () => {
     let res = await API.get(`/api/user/self`);
@@ -284,6 +288,10 @@ export const useDashboardData = (userState, userDispatch) => {
     // Top 用户排行
     topUsers,
     topUsersLoading,
+    topUsersLimit,
+    setTopUsersLimit,
+    topUsersSortBy,
+    setTopUsersSortBy,
 
     // 计算值
     timeOptions,
