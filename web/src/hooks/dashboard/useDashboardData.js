@@ -252,6 +252,13 @@ export const useDashboardData = (userState, userDispatch) => {
     }
   }, [getUserData]);
 
+  useEffect(() => {
+    if (!initialized.current) {
+      return;
+    }
+    loadTopUsers();
+  }, [loadTopUsers]);
+
   return {
     // 基础状态
     loading: showLoading,
