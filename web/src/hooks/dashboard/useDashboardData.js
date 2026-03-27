@@ -31,6 +31,8 @@ export const useDashboardData = (userState, userDispatch) => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const initialized = useRef(false);
+  const topUsersRequestSeq = useRef(0);
+  const skipFirstTopUsersFilterEffect = useRef(true);
 
   // ========== 基础状态 ==========
   const [loading, setLoading] = useState(false);
@@ -194,11 +196,15 @@ export const useDashboardData = (userState, userDispatch) => {
       setTopUsers([]);
       return;
     }
+    const requestSeq = ++topUsersRequestSeq.current;
     setTopUsersLoading(true);
     try {
       const res = await API.get(
         `/api/data/users/top?limit=${topUsersLimit}&sort_by=${topUsersSortBy}`,
       );
+      if (requestSeq !== topUsersRequestSeq.current) {
+        return;
+      }
       const { success, message, data } = res.data;
       if (success) {
         setTopUsers(Array.isArray(data) ? data : []);
@@ -206,7 +212,9 @@ export const useDashboardData = (userState, userDispatch) => {
         showError(message);
       }
     } finally {
-      setTopUsersLoading(false);
+      if (requestSeq === topUsersRequestSeq.current) {
+        setTopUsersLoading(false);
+      }
     }
   }, [isAdminUser, topUsersLimit, topUsersSortBy]);
 
@@ -254,6 +262,10 @@ export const useDashboardData = (userState, userDispatch) => {
 
   useEffect(() => {
     if (!initialized.current) {
+      return;
+    }
+    if (skipFirstTopUsersFilterEffect.current) {
+      skipFirstTopUsersFilterEffect.current = false;
       return;
     }
     loadTopUsers();
