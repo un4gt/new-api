@@ -83,7 +83,6 @@ const Dashboard = () => {
         dashboardCharts.updateChartData(data);
       }
     });
-    await dashboardData.loadTopUsers();
   };
 
   const handleRefresh = async () => {

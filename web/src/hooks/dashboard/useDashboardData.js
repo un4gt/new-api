@@ -32,7 +32,6 @@ export const useDashboardData = (userState, userDispatch) => {
   const isMobile = useIsMobile();
   const initialized = useRef(false);
   const topUsersRequestSeq = useRef(0);
-  const skipFirstTopUsersFilterEffect = useRef(true);
 
   // ========== 基础状态 ==========
   const [loading, setLoading] = useState(false);
@@ -262,10 +261,6 @@ export const useDashboardData = (userState, userDispatch) => {
 
   useEffect(() => {
     if (!initialized.current) {
-      return;
-    }
-    if (skipFirstTopUsersFilterEffect.current) {
-      skipFirstTopUsersFilterEffect.current = false;
       return;
     }
     loadTopUsers();
