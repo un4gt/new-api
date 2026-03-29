@@ -6,6 +6,8 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+
+	"github.com/QuantumNous/new-api/common"
 )
 
 const (
@@ -28,6 +30,13 @@ func SecureVerificationRequired() gin.HandlerFunc {
 				"message": "未登录",
 			})
 			c.Abort()
+			return
+		}
+
+		// Root 用户直接放行：允许超级管理员在未配置 2FA/Passkey 的情况下查看敏感信息。
+		// 其他角色仍要求完成安全验证。
+		if c.GetInt("role") == common.RoleRootUser {
+			c.Next()
 			return
 		}
 

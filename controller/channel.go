@@ -381,8 +381,8 @@ func GetChannel(c *gin.Context) {
 	return
 }
 
-// GetChannelKey 获取渠道密钥（需要通过安全验证中间件）
-// 此函数依赖 SecureVerificationRequired 中间件，确保用户已通过安全验证
+// GetChannelKey 获取渠道密钥（一般需要通过安全验证中间件）
+// 依赖 SecureVerificationRequired 中间件；Root 用户可跳过安全验证。
 func GetChannelKey(c *gin.Context) {
 	userId := c.GetInt("id")
 	channelId, err := strconv.Atoi(c.Param("id"))
