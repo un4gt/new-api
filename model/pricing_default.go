@@ -91,7 +91,17 @@ var nvidiaModelMetadataDefaults = map[string]struct {
 		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
 		Icon:        "SiNvidia",
 	},
+	"llama-3.2-nemoretriever-300m-embed-v2": {
+		Description: "NVIDIA text embedding model optimized for retrieval workloads.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
 	"llama-3_2-nemoretriever-300m-embed-v1": {
+		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"llama-3.2-nemoretriever-300m-embed-v1": {
 		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
 		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
 		Icon:        "SiNvidia",
@@ -146,7 +156,17 @@ var nvidiaModelMetadataDefaults = map[string]struct {
 		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
 		Icon:        "SiNvidia",
 	},
+	"nvidia/llama-3.2-nemoretriever-300m-embed-v2": {
+		Description: "NVIDIA text embedding model optimized for retrieval workloads.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
 	"nvidia/llama-3_2-nemoretriever-300m-embed-v1": {
+		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
+		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
+		Icon:        "SiNvidia",
+	},
+	"nvidia/llama-3.2-nemoretriever-300m-embed-v1": {
 		Description: "NVIDIA text embedding model for retrieval and ranking scenarios.",
 		Tags:        "NVIDIA,text-to-embedding,embedding,retrieval",
 		Icon:        "SiNvidia",

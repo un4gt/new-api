@@ -17,19 +17,22 @@
 
 ### text-to-embedding
 
-- `llama-nemotron-embed-1b-v2`
-- `llama-3_2-nemoretriever-300m-embed-v2`
-- `llama-3_2-nemoretriever-300m-embed-v1`
-- `llama-3.2-nv-embedqa-1b-v2`
-- `nv-embedqa-e5-v5`
-- `nv-embed-v1`
-- `bge-m3`
+- `nvidia/llama-nemotron-embed-1b-v2`
+- `nvidia/llama-3.2-nemoretriever-300m-embed-v2`
+- `nvidia/llama-3.2-nemoretriever-300m-embed-v1`
+- `nvidia/nv-embed-v1`
+- `baai/bge-m3`
+- `nvidia/nv-embedqa-e5-v5`
+- `nvidia/nv-embedcode-7b-v1`
+- `nvidia/embed-qa-4`
+- `nvidia/llama-3.2-nv-embedqa-1b-v2`
+- `nvidia/llama-3.2-nv-embedqa-1b-v1`
 
 ### image-to-embedding / multimodal embedding
 
-- `llama-nemotron-embed-vl-1b-v2`
-- `llama-3.2-nemoretriever-1b-vlm-embed-v1`
-- `nv-dinov2`
+- `nvidia/llama-nemotron-embed-vl-1b-v2`
+- `nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1`
+- `nvidia/nv-dinov2`
 
 未在上述列表中的模型会被网关拒绝（返回 unsupported model 错误）。
 
@@ -68,8 +71,11 @@ curl -X POST 'http://localhost:3000/v1/embeddings' \
   -H 'Authorization: Bearer sk-your-token' \
   -H 'Content-Type: application/json' \
   -d '{
-    "model": "nv-embed-v1",
-    "input": "hello world"
+    "model": "nvidia/nv-embed-v1",
+    "input": "hello world",
+    "input_type": "query",
+    "truncate": "NONE",
+    "encoding_format": "float"
   }'
 ```
 
@@ -80,7 +86,7 @@ curl -X POST 'http://localhost:3000/v1/embeddings' \
   -H 'Authorization: Bearer sk-your-token' \
   -H 'Content-Type: application/json' \
   -d '{
-    "model": "nv-dinov2",
+    "model": "nvidia/nv-dinov2",
     "input": "data:image/jpeg;base64,<BASE64_IMAGE>"
   }'
 ```
@@ -92,7 +98,7 @@ curl -X POST 'http://localhost:3000/v1/embeddings' \
   -H 'Authorization: Bearer sk-your-token' \
   -H 'Content-Type: application/json' \
   -d '{
-    "model": "nv-dinov2",
+    "model": "nvidia/nv-dinov2",
     "input": "https://example.com/large-image.jpg"
   }'
 ```

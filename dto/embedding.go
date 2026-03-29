@@ -22,8 +22,10 @@ type EmbeddingOptions struct {
 type EmbeddingRequest struct {
 	Model            string   `json:"model"`
 	Input            any      `json:"input"`
+	InputType        *string  `json:"input_type,omitempty"`
 	EncodingFormat   string   `json:"encoding_format,omitempty"`
 	Dimensions       *int     `json:"dimensions,omitempty"`
+	Truncate         *string  `json:"truncate,omitempty"`
 	User             string   `json:"user,omitempty"`
 	Seed             *float64 `json:"seed,omitempty"`
 	Temperature      *float64 `json:"temperature,omitempty"`

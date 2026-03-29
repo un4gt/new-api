@@ -619,10 +619,17 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 		switch constant.EndpointType(endpointType) {
 		case constant.EndpointTypeEmbeddings:
 			// 返回 EmbeddingRequest
-			return &dto.EmbeddingRequest{
+			req := &dto.EmbeddingRequest{
 				Model: model,
 				Input: []any{"hello world"},
 			}
+			// NVIDIA text embedding models typically require `input_type` + `truncate`
+			// (see NVIDIA official examples for integrate.api.nvidia.com).
+			if channel != nil && channel.Type == constant.ChannelTypeNvidia {
+				req.InputType = lo.ToPtr("query")
+				req.Truncate = lo.ToPtr("NONE")
+			}
+			return req
 		case constant.EndpointTypeImageGeneration:
 			// 返回 ImageRequest
 			return &dto.ImageRequest{
@@ -718,12 +725,21 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 	// 先判断是否为 Embedding 模型
 	if strings.Contains(strings.ToLower(model), "embedding") ||
 		strings.HasPrefix(model, "m3e") ||
-		strings.Contains(model, "bge-") {
+		strings.Contains(model, "bge-") ||
+		// Keep in sync with requestPath auto-detection logic above.
+		// Many embedding models (e.g. Nvidia ".*-embed-.*") do not contain "embedding".
+		strings.Contains(strings.ToLower(model), "embed") ||
+		(channel != nil && channel.Type == constant.ChannelTypeMokaAI) {
 		// 返回 EmbeddingRequest
-		return &dto.EmbeddingRequest{
+		req := &dto.EmbeddingRequest{
 			Model: model,
 			Input: []any{"hello world"},
 		}
+		if channel != nil && channel.Type == constant.ChannelTypeNvidia {
+			req.InputType = lo.ToPtr("query")
+			req.Truncate = lo.ToPtr("NONE")
+		}
+		return req
 	}
 
 	// Responses compaction models (must use /v1/responses/compact)

@@ -6,8 +6,8 @@ const (
 	ChannelName = "nvidia"
 
 	ModelLlamaNemotronEmbed1BV2           = "nvidia/llama-nemotron-embed-1b-v2"
-	ModelLlama32Nemoretriever300MEmbedV2  = "nvidia/llama-3_2-nemoretriever-300m-embed-v2"
-	ModelLlama32Nemoretriever300MEmbedV1  = "nvidia/llama-3_2-nemoretriever-300m-embed-v1"
+	ModelLlama32Nemoretriever300MEmbedV2  = "nvidia/llama-3.2-nemoretriever-300m-embed-v2"
+	ModelLlama32Nemoretriever300MEmbedV1  = "nvidia/llama-3.2-nemoretriever-300m-embed-v1"
 	ModelLlama32NvEmbedqa1BV2             = "nvidia/llama-3.2-nv-embedqa-1b-v2"
 	ModelLlama32NvEmbedqa1BV1             = "nvidia/llama-3.2-nv-embedqa-1b-v1"
 	ModelNvEmbedqaE5V5                    = "nvidia/nv-embedqa-e5-v5"
@@ -40,11 +40,11 @@ var modelAliasToCanonical = map[string]string{
 	ModelLlamaNemotronEmbed1BV2:                      ModelLlamaNemotronEmbed1BV2,
 	"llama-nemotron-embed-1b-v2":                     ModelLlamaNemotronEmbed1BV2,
 	ModelLlama32Nemoretriever300MEmbedV2:             ModelLlama32Nemoretriever300MEmbedV2,
-	"nvidia/llama-3.2-nemoretriever-300m-embed-v2":   ModelLlama32Nemoretriever300MEmbedV2,
+	"nvidia/llama-3_2-nemoretriever-300m-embed-v2":   ModelLlama32Nemoretriever300MEmbedV2,
 	"llama-3_2-nemoretriever-300m-embed-v2":          ModelLlama32Nemoretriever300MEmbedV2,
 	"llama-3.2-nemoretriever-300m-embed-v2":          ModelLlama32Nemoretriever300MEmbedV2,
 	ModelLlama32Nemoretriever300MEmbedV1:             ModelLlama32Nemoretriever300MEmbedV1,
-	"nvidia/llama-3.2-nemoretriever-300m-embed-v1":   ModelLlama32Nemoretriever300MEmbedV1,
+	"nvidia/llama-3_2-nemoretriever-300m-embed-v1":   ModelLlama32Nemoretriever300MEmbedV1,
 	"llama-3_2-nemoretriever-300m-embed-v1":          ModelLlama32Nemoretriever300MEmbedV1,
 	"llama-3.2-nemoretriever-300m-embed-v1":          ModelLlama32Nemoretriever300MEmbedV1,
 	ModelLlama32NvEmbedqa1BV2:                        ModelLlama32NvEmbedqa1BV2,
