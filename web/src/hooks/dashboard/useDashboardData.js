@@ -190,32 +190,44 @@ export const useDashboardData = (userState, userDispatch) => {
     }
   }, [inputs, dataExportDefaultTime, isAdminUser, now]);
 
-  const loadTopUsers = useCallback(async () => {
-    if (!isAdminUser) {
-      setTopUsers([]);
-      return;
-    }
-    const requestSeq = ++topUsersRequestSeq.current;
-    setTopUsersLoading(true);
-    try {
-      const res = await API.get(
-        `/api/data/users/top?limit=${topUsersLimit}&sort_by=${topUsersSortBy}`,
-      );
-      if (requestSeq !== topUsersRequestSeq.current) {
+  const loadTopUsers = useCallback(
+    async (limit = topUsersLimit, sortBy = topUsersSortBy) => {
+      if (!isAdminUser) {
+        setTopUsers([]);
         return;
       }
-      const { success, message, data } = res.data;
-      if (success) {
-        setTopUsers(Array.isArray(data) ? data : []);
-      } else {
-        showError(message);
+
+      const parsedLimit = Number(limit);
+      const effectiveLimit =
+        Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 10;
+      const effectiveSortBy =
+        sortBy === 'consume_quota' || sortBy === 'request_count'
+          ? sortBy
+          : 'consume_quota';
+
+      const requestSeq = ++topUsersRequestSeq.current;
+      setTopUsersLoading(true);
+      try {
+        const res = await API.get(
+          `/api/data/users/top?limit=${effectiveLimit}&sort_by=${effectiveSortBy}`,
+        );
+        if (requestSeq !== topUsersRequestSeq.current) {
+          return;
+        }
+        const { success, message, data } = res.data;
+        if (success) {
+          setTopUsers(Array.isArray(data) ? data : []);
+        } else {
+          showError(message);
+        }
+      } finally {
+        if (requestSeq === topUsersRequestSeq.current) {
+          setTopUsersLoading(false);
+        }
       }
-    } finally {
-      if (requestSeq === topUsersRequestSeq.current) {
-        setTopUsersLoading(false);
-      }
-    }
-  }, [isAdminUser, topUsersLimit, topUsersSortBy]);
+    },
+    [isAdminUser, topUsersLimit, topUsersSortBy],
+  );
 
   const getUserData = useCallback(async () => {
     let res = await API.get(`/api/user/self`);
@@ -229,9 +241,9 @@ export const useDashboardData = (userState, userDispatch) => {
 
   const refresh = useCallback(async () => {
     const data = await loadQuotaData();
-    await loadTopUsers();
+    await loadTopUsers(topUsersLimit, topUsersSortBy);
     return data;
-  }, [loadQuotaData, loadTopUsers]);
+  }, [loadQuotaData, loadTopUsers, topUsersLimit, topUsersSortBy]);
 
   const handleSearchConfirm = useCallback(
     async (updateChartDataCallback) => {
@@ -260,11 +272,8 @@ export const useDashboardData = (userState, userDispatch) => {
   }, [getUserData]);
 
   useEffect(() => {
-    if (!initialized.current) {
-      return;
-    }
-    loadTopUsers();
-  }, [loadTopUsers]);
+    loadTopUsers(topUsersLimit, topUsersSortBy);
+  }, [loadTopUsers, topUsersLimit, topUsersSortBy]);
 
   return {
     // 基础状态
