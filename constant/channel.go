@@ -54,7 +54,6 @@ const (
 	ChannelTypeDoubaoVideo    = 54
 	ChannelTypeSora           = 55
 	ChannelTypeReplicate      = 56
-	ChannelTypeCodex          = 57
 	ChannelTypeMoark          = 58
 	ChannelTypeNvidia         = 59
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
@@ -119,7 +118,7 @@ var ChannelBaseURLs = []string{
 	"https://ark.cn-beijing.volces.com",         //54
 	"https://api.openai.com",                    //55
 	"https://api.replicate.com",                 //56
-	"https://chatgpt.com",                       //57
+	"",                                          //57
 	"https://ai.gitee.com",                      //58
 	"https://integrate.api.nvidia.com",          //59
 }
@@ -178,7 +177,6 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeDoubaoVideo:    "DoubaoVideo",
 	ChannelTypeSora:           "Sora",
 	ChannelTypeReplicate:      "Replicate",
-	ChannelTypeCodex:          "Codex",
 	ChannelTypeMoark:          "Moark",
 	ChannelTypeNvidia:         "Nvidia",
 }

@@ -34,14 +34,6 @@ type ChannelAffinitySetting struct {
 	Rules             []ChannelAffinityRule `json:"rules"`
 }
 
-var codexCliPassThroughHeaders = []string{
-	"Originator",
-	"Session_id",
-	"User-Agent",
-	"X-Codex-Beta-Features",
-	"X-Codex-Turn-Metadata",
-}
-
 var claudeCliPassThroughHeaders = []string{
 	"X-Stainless-Arch",
 	"X-Stainless-Lang",
@@ -78,21 +70,6 @@ var channelAffinitySetting = ChannelAffinitySetting{
 	MaxEntries:        100_000,
 	DefaultTTLSeconds: 3600,
 	Rules: []ChannelAffinityRule{
-		{
-			Name:       "codex cli trace",
-			ModelRegex: []string{"^gpt-.*$"},
-			PathRegex:  []string{"/v1/responses"},
-			KeySources: []ChannelAffinityKeySource{
-				{Type: "gjson", Path: "prompt_cache_key"},
-			},
-			ValueRegex:            "",
-			TTLSeconds:            0,
-			ParamOverrideTemplate: buildPassHeaderTemplate(codexCliPassThroughHeaders),
-			SkipRetryOnFailure:    false,
-			IncludeUsingGroup:     true,
-			IncludeRuleName:       true,
-			UserAgentInclude:      nil,
-		},
 		{
 			Name:       "claude cli trace",
 			ModelRegex: []string{"^claude-.*$"},
