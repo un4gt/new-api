@@ -185,11 +185,6 @@ export const CHANNEL_OPTIONS = [
     label: 'Replicate',
   },
   {
-    value: 57,
-    color: 'blue',
-    label: 'Codex (OpenAI OAuth)',
-  },
-  {
     value: 58,
     color: 'green',
     label: '模力方舟',

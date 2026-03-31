@@ -27,14 +27,6 @@ const buildPassHeadersTemplate = (headers) => ({
   ],
 });
 
-export const CODEX_CLI_HEADER_PASSTHROUGH_HEADERS = [
-  'Originator',
-  'Session_id',
-  'User-Agent',
-  'X-Codex-Beta-Features',
-  'X-Codex-Turn-Metadata',
-];
-
 export const CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS = [
   'X-Stainless-Arch',
   'X-Stainless-Lang',
@@ -51,27 +43,11 @@ export const CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS = [
   'Anthropic-Version',
 ];
 
-export const CODEX_CLI_HEADER_PASSTHROUGH_TEMPLATE = buildPassHeadersTemplate(
-  CODEX_CLI_HEADER_PASSTHROUGH_HEADERS,
-);
-
 export const CLAUDE_CLI_HEADER_PASSTHROUGH_TEMPLATE = buildPassHeadersTemplate(
   CLAUDE_CLI_HEADER_PASSTHROUGH_HEADERS,
 );
 
 export const CHANNEL_AFFINITY_RULE_TEMPLATES = {
-  codexCli: {
-    name: 'codex cli trace',
-    model_regex: ['^gpt-.*$'],
-    path_regex: ['/v1/responses'],
-    key_sources: [{ type: 'gjson', path: 'prompt_cache_key' }],
-    param_override_template: CODEX_CLI_HEADER_PASSTHROUGH_TEMPLATE,
-    value_regex: '',
-    ttl_seconds: 0,
-    skip_retry_on_failure: false,
-    include_using_group: true,
-    include_rule_name: true,
-  },
   claudeCli: {
     name: 'claude cli trace',
     model_regex: ['^claude-.*$'],

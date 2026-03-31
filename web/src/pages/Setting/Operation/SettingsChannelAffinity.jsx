@@ -443,7 +443,7 @@ export default function SettingsChannelAffinity(props) {
     }
   };
 
-  const appendCodexAndClaudeCodeTemplates = () => {
+  const appendClaudeCodeTemplate = () => {
     const doAppend = () => {
       const existingNames = new Set(
         (rules || [])
@@ -451,15 +451,14 @@ export default function SettingsChannelAffinity(props) {
           .filter((x) => x.length > 0),
       );
 
-      const templates = [
-        CHANNEL_AFFINITY_RULE_TEMPLATES.codexCli,
-        CHANNEL_AFFINITY_RULE_TEMPLATES.claudeCli,
-      ].map((tpl) => {
-        const baseTemplate = cloneChannelAffinityTemplate(tpl);
-        const name = makeUniqueName(existingNames, tpl.name);
-        existingNames.add(name);
-        return { ...baseTemplate, name };
-      });
+      const templates = [CHANNEL_AFFINITY_RULE_TEMPLATES.claudeCli].map(
+        (tpl) => {
+          const baseTemplate = cloneChannelAffinityTemplate(tpl);
+          const name = makeUniqueName(existingNames, tpl.name);
+          existingNames.add(name);
+          return { ...baseTemplate, name };
+        },
+      );
 
       const next = [...(rules || []), ...templates].map((r, idx) => ({
         ...(r || {}),
@@ -475,10 +474,10 @@ export default function SettingsChannelAffinity(props) {
     }
 
     Modal.confirm({
-      title: t('填充 Codex CLI / Claude CLI 模版'),
+      title: t('填充 Claude CLI 模版'),
       content: (
         <div style={{ lineHeight: '1.6' }}>
-          <Text type='tertiary'>{t('将追加 2 条规则到现有规则列表。')}</Text>
+          <Text type='tertiary'>{t('将追加 1 条规则到现有规则列表。')}</Text>
         </div>
       ),
       onOk: doAppend,
@@ -981,8 +980,8 @@ export default function SettingsChannelAffinity(props) {
               >
                 {t('JSON 模式')}
               </Button>
-              <Button onClick={appendCodexAndClaudeCodeTemplates}>
-                {t('填充 Codex CLI / Claude CLI 模版')}
+              <Button onClick={appendClaudeCodeTemplate}>
+                {t('填充 Claude CLI 模版')}
               </Button>
               <Button icon={<IconPlus />} onClick={openAddModal}>
                 {t('新增规则')}

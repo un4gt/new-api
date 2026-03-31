@@ -40,11 +40,6 @@ const APP_CONFIGS = {
       { key: 'opusModel', label: 'Opus 模型' },
     ],
   },
-  codex: {
-    label: 'Codex',
-    defaultName: 'My Codex',
-    modelFields: [{ key: 'model', label: '主模型' }],
-  },
   gemini: {
     label: 'Gemini',
     defaultName: 'My Gemini',
@@ -65,7 +60,7 @@ function getServerAddress() {
 
 function buildCCSwitchURL(app, name, models, apiKey) {
   const serverAddress = getServerAddress();
-  const endpoint = app === 'codex' ? serverAddress + '/v1' : serverAddress;
+  const endpoint = serverAddress;
   const params = new URLSearchParams();
   params.set('resource', 'provider');
   params.set('app', app);
