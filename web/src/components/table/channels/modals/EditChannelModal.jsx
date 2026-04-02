@@ -126,11 +126,6 @@ const PARAM_OVERRIDE_OPERATIONS_TEMPLATE = {
   ],
 };
 
-// 支持并且已适配通过接口获取模型列表的渠道类型
-const MODEL_FETCHABLE_TYPES = new Set([
-  1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43, 58, 59,
-]);
-
 function type2secretPrompt(type) {
   // inputs.type === 15 ? '按照如下格式输入：APIKey|SecretKey' : (inputs.type === 18 ? '按照如下格式输入：APPID|APISecret|APIKey' : '请输入渠道对应的鉴权密钥')
   switch (type) {
@@ -138,12 +133,8 @@ function type2secretPrompt(type) {
       return '按照如下格式输入：APIKey|SecretKey';
     case 18:
       return '按照如下格式输入：APPID|APISecret|APIKey';
-    case 22:
-      return '按照如下格式输入：APIKey-AppId，例如：fastgpt-0sp2gtvfdgyi4k30jwlgwf1i-64f335d84283f05518e9e041';
     case 23:
       return '按照如下格式输入：AppId|SecretId|SecretKey';
-    case 33:
-      return '按照如下格式输入：Ak|Sk|Region';
     case 45:
       return '请输入渠道对应的鉴权密钥, 豆包语音输入：AppId|AccessToken';
     case 50:
@@ -193,8 +184,6 @@ const EditChannelModal = (props) => {
     settings: '',
     // 仅 Vertex: 密钥格式（存入 settings.vertex_key_type）
     vertex_key_type: 'json',
-    // 仅 AWS: 密钥格式和区域（存入 settings.aws_key_type 和 settings.aws_region）
-    aws_key_type: 'ak_sk',
     // 企业账户设置
     is_enterprise_account: false,
     // 字段透传控制默认值
@@ -202,8 +191,6 @@ const EditChannelModal = (props) => {
     disable_store: false, // false = 允许透传（默认开启）
     allow_safety_identifier: false,
     allow_include_obfuscation: false,
-    allow_inference_geo: false,
-    claude_beta_query: false,
     upstream_model_update_check_enabled: false,
     upstream_model_update_auto_sync_enabled: false,
     upstream_model_update_last_check_time: 0,
@@ -842,8 +829,6 @@ const EditChannelModal = (props) => {
             parsedSettings.azure_responses_version || '';
           // 读取 Vertex 密钥格式
           data.vertex_key_type = parsedSettings.vertex_key_type || 'json';
-          // 读取 AWS 密钥格式和区域
-          data.aws_key_type = parsedSettings.aws_key_type || 'ak_sk';
           // 读取企业账户设置
           data.is_enterprise_account =
             parsedSettings.openrouter_enterprise === true;
@@ -854,9 +839,6 @@ const EditChannelModal = (props) => {
             parsedSettings.allow_safety_identifier || false;
           data.allow_include_obfuscation =
             parsedSettings.allow_include_obfuscation || false;
-          data.allow_inference_geo =
-            parsedSettings.allow_inference_geo || false;
-          data.claude_beta_query = parsedSettings.claude_beta_query || false;
           data.upstream_model_update_check_enabled =
             parsedSettings.upstream_model_update_check_enabled === true;
           data.upstream_model_update_auto_sync_enabled =
@@ -878,14 +860,11 @@ const EditChannelModal = (props) => {
           data.azure_responses_version = '';
           data.region = '';
           data.vertex_key_type = 'json';
-          data.aws_key_type = 'ak_sk';
           data.is_enterprise_account = false;
           data.allow_service_tier = false;
           data.disable_store = false;
           data.allow_safety_identifier = false;
           data.allow_include_obfuscation = false;
-          data.allow_inference_geo = false;
-          data.claude_beta_query = false;
           data.upstream_model_update_check_enabled = false;
           data.upstream_model_update_auto_sync_enabled = false;
           data.upstream_model_update_last_check_time = 0;
@@ -895,14 +874,11 @@ const EditChannelModal = (props) => {
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
         data.vertex_key_type = 'json';
-        data.aws_key_type = 'ak_sk';
         data.is_enterprise_account = false;
         data.allow_service_tier = false;
         data.disable_store = false;
         data.allow_safety_identifier = false;
         data.allow_include_obfuscation = false;
-        data.allow_inference_geo = false;
-        data.claude_beta_query = false;
         data.upstream_model_update_check_enabled = false;
         data.upstream_model_update_auto_sync_enabled = false;
         data.upstream_model_update_last_check_time = 0;
@@ -1614,11 +1590,6 @@ const EditChannelModal = (props) => {
         localInputs.is_enterprise_account === true;
     }
 
-    // type === 33 (AWS): 保存 aws_key_type 到 settings
-    if (localInputs.type === 33) {
-      settings.aws_key_type = localInputs.aws_key_type || 'ak_sk';
-    }
-
     // type === 41 (Vertex): 始终保存 vertex_key_type 到 settings，避免编辑时被重置
     if (localInputs.type === 41) {
       settings.vertex_key_type = localInputs.vertex_key_type || 'json';
@@ -1626,21 +1597,14 @@ const EditChannelModal = (props) => {
       delete settings.vertex_key_type;
     }
 
-    // type === 1 (OpenAI) 或 type === 14 (Claude): 设置字段透传控制（显式保存布尔值）
-    if (localInputs.type === 1 || localInputs.type === 14) {
+    // type === 1 (OpenAI): 设置字段透传控制（显式保存布尔值）
+    if (localInputs.type === 1) {
       settings.allow_service_tier = localInputs.allow_service_tier === true;
-      // 仅 OpenAI 渠道需要 store / safety_identifier / include_obfuscation
-      if (localInputs.type === 1) {
-        settings.disable_store = localInputs.disable_store === true;
-        settings.allow_safety_identifier =
-          localInputs.allow_safety_identifier === true;
-        settings.allow_include_obfuscation =
-          localInputs.allow_include_obfuscation === true;
-      }
-      if (localInputs.type === 14) {
-        settings.allow_inference_geo = localInputs.allow_inference_geo === true;
-        settings.claude_beta_query = localInputs.claude_beta_query === true;
-      }
+      settings.disable_store = localInputs.disable_store === true;
+      settings.allow_safety_identifier =
+        localInputs.allow_safety_identifier === true;
+      settings.allow_include_obfuscation =
+        localInputs.allow_include_obfuscation === true;
     }
 
     settings.upstream_model_update_check_enabled =
@@ -1678,15 +1642,11 @@ const EditChannelModal = (props) => {
     delete localInputs.is_enterprise_account;
     // 顶层的 vertex_key_type 不应发送给后端
     delete localInputs.vertex_key_type;
-    // 顶层的 aws_key_type 不应发送给后端
-    delete localInputs.aws_key_type;
     // 清理字段透传控制的临时字段
     delete localInputs.allow_service_tier;
     delete localInputs.disable_store;
     delete localInputs.allow_safety_identifier;
     delete localInputs.allow_include_obfuscation;
-    delete localInputs.allow_inference_geo;
-    delete localInputs.claude_beta_query;
     delete localInputs.upstream_model_update_check_enabled;
     delete localInputs.upstream_model_update_auto_sync_enabled;
     delete localInputs.upstream_model_update_last_check_time;
@@ -2148,34 +2108,6 @@ const EditChannelModal = (props) => {
                       autoComplete='new-password'
                     />
 
-                    {inputs.type === 33 && (
-                      <>
-                        <Form.Select
-                          field='aws_key_type'
-                          label={t('密钥格式')}
-                          placeholder={t('请选择密钥格式')}
-                          optionList={[
-                            {
-                              label: 'AccessKey / SecretAccessKey',
-                              value: 'ak_sk',
-                            },
-                            { label: 'API Key', value: 'api_key' },
-                          ]}
-                          style={{ width: '100%' }}
-                          value={inputs.aws_key_type || 'ak_sk'}
-                          onChange={(value) => {
-                            handleChannelOtherSettingsChange(
-                              'aws_key_type',
-                              value,
-                            );
-                          }}
-                          extraText={t(
-                            'AK/SK 模式：使用 AccessKey 和 SecretAccessKey；API Key 模式：使用 API Key',
-                          )}
-                        />
-                      </>
-                    )}
-
                     {inputs.type === 41 && (
                       <Form.Select
                         field='vertex_key_type'
@@ -2244,17 +2176,7 @@ const EditChannelModal = (props) => {
                         <Form.TextArea
                           field='key'
                           label={t('密钥')}
-                          placeholder={
-                            inputs.type === 33
-                              ? inputs.aws_key_type === 'api_key'
-                                ? t(
-                                    '请输入 API Key，一行一个，格式：APIKey|Region',
-                                  )
-                                : t(
-                                    '请输入密钥，一行一个，格式：AccessKey|SecretAccessKey|Region',
-                                  )
-                              : t('请输入密钥，一行一个')
-                          }
+                          placeholder={t('请输入密钥，一行一个')}
                           rules={
                             isEdit
                               ? []
@@ -2449,15 +2371,7 @@ const EditChannelModal = (props) => {
                                 ? t('密钥（编辑模式下，保存的密钥不会显示）')
                                 : t('密钥')
                             }
-                            placeholder={
-                              inputs.type === 33
-                                ? inputs.aws_key_type === 'api_key'
-                                  ? t('请输入 API Key，格式：APIKey|Region')
-                                  : t(
-                                      '按照如下格式输入：AccessKey|SecretAccessKey|Region',
-                                    )
-                                : t(type2secretPrompt(inputs.type))
-                            }
+                            placeholder={t(type2secretPrompt(inputs.type))}
                             rules={
                               isEdit
                                 ? []
@@ -2577,16 +2491,6 @@ const EditChannelModal = (props) => {
                         editorType='region'
                         formApi={formApiRef.current}
                         extraText={t('设置默认地区和特定模型的专用地区')}
-                      />
-                    )}
-
-                    {inputs.type === 21 && (
-                      <Form.Input
-                        field='other'
-                        label={t('知识库 ID')}
-                        placeholder={'请输入知识库 ID，例如：123456'}
-                        onChange={(value) => handleInputChange('other', value)}
-                        showClear
                       />
                     )}
 
@@ -2770,7 +2674,6 @@ const EditChannelModal = (props) => {
 
                       {inputs.type !== 3 &&
                         inputs.type !== 8 &&
-                        inputs.type !== 22 &&
                         inputs.type !== 36 &&
                         (inputs.type !== 45 || doubaoApiEditUnlocked) && (
                           <div>
@@ -2791,23 +2694,6 @@ const EditChannelModal = (props) => {
                             />
                           </div>
                         )}
-
-                      {inputs.type === 22 && (
-                        <div>
-                          <Form.Input
-                            field='base_url'
-                            label={t('私有部署地址')}
-                            placeholder={t(
-                              '请输入私有部署地址，格式为：https://fastgpt.run/api/openapi',
-                            )}
-                            onChange={(value) =>
-                              handleInputChange('base_url', value)
-                            }
-                            showClear
-                            disabled={isIonetLocked}
-                          />
-                        </div>
-                      )}
 
                       {inputs.type === 36 && (
                         <div>
@@ -3546,47 +3432,6 @@ const EditChannelModal = (props) => {
                         />
                       </>
                     )}
-
-                    {/* 字段透传控制 - Claude 渠道 */}
-                    {inputs.type === 14 && (
-                      <>
-                        <div className='mt-4 mb-2 text-sm font-medium text-gray-700'>
-                          {t('字段透传控制')}
-                        </div>
-
-                        <Form.Switch
-                          field='allow_service_tier'
-                          label={t('允许 service_tier 透传')}
-                          checkedText={t('开')}
-                          uncheckedText={t('关')}
-                          onChange={(value) =>
-                            handleChannelOtherSettingsChange(
-                              'allow_service_tier',
-                              value,
-                            )
-                          }
-                          extraText={t(
-                            'service_tier 字段用于指定服务层级，允许透传可能导致实际计费高于预期。默认关闭以避免额外费用',
-                          )}
-                        />
-
-                        <Form.Switch
-                          field='allow_inference_geo'
-                          label={t('允许 inference_geo 透传')}
-                          checkedText={t('开')}
-                          uncheckedText={t('关')}
-                          onChange={(value) =>
-                            handleChannelOtherSettingsChange(
-                              'allow_inference_geo',
-                              value,
-                            )
-                          }
-                          extraText={t(
-                            'inference_geo 字段用于控制 Claude 数据驻留推理区域。默认关闭以避免未经授权透传地域信息',
-                          )}
-                        />
-                      </>
-                    )}
                   </Card>
                 </div>
 
@@ -3612,24 +3457,6 @@ const EditChannelModal = (props) => {
                         </Text>
                       </div>
                     </div>
-
-                    {inputs.type === 14 && (
-                      <Form.Switch
-                        field='claude_beta_query'
-                        label={t('Claude 强制 beta=true')}
-                        checkedText={t('开')}
-                        uncheckedText={t('关')}
-                        onChange={(value) =>
-                          handleChannelOtherSettingsChange(
-                            'claude_beta_query',
-                            value,
-                          )
-                        }
-                        extraText={t(
-                          '开启后，该渠道请求 Claude 时将强制追加 ?beta=true（无需客户端手动传参）',
-                        )}
-                      />
-                    )}
 
                     {inputs.type === 1 && (
                       <Form.Switch

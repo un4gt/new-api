@@ -135,14 +135,6 @@ const FooterBar = () => {
                     One API
                   </a>
                   <a
-                    href='https://github.com/novicezk/midjourney-proxy'
-                    target='_blank'
-                    rel='noopener noreferrer'
-                    className='!text-semi-color-text-1'
-                  >
-                    Midjourney-Proxy
-                  </a>
-                  <a
                     href='https://github.com/Calcium-Ion/neko-api-key-tool'
                     target='_blank'
                     rel='noopener noreferrer'

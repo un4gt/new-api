@@ -56,7 +56,6 @@ import {
   Qingyan,
   DeepSeek,
   Qwen,
-  Midjourney,
   Grok,
   AzureAI,
   Hunyuan,
@@ -307,9 +306,6 @@ const Home = () => {
                     </div>
                     <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
                       <Qwen.Color size={40} />
-                    </div>
-                    <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
-                      <Midjourney size={40} />
                     </div>
                     <div className='w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 flex items-center justify-center'>
                       <Grok size={40} />

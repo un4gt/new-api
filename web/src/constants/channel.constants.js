@@ -20,31 +20,11 @@ For commercial licensing, please contact support@quantumnous.com
 export const CHANNEL_OPTIONS = [
   { value: 1, color: 'green', label: 'OpenAI' },
   {
-    value: 2,
-    color: 'light-blue',
-    label: 'Midjourney Proxy',
-  },
-  {
-    value: 5,
-    color: 'blue',
-    label: 'Midjourney Proxy Plus',
-  },
-  {
     value: 36,
     color: 'purple',
     label: 'Suno API',
   },
   { value: 4, color: 'grey', label: 'Ollama' },
-  {
-    value: 14,
-    color: 'indigo',
-    label: 'Anthropic Claude',
-  },
-  {
-    value: 33,
-    color: 'indigo',
-    label: 'AWS Claude',
-  },
   { value: 41, color: 'blue', label: 'Vertex AI' },
   {
     value: 3,
@@ -120,16 +100,6 @@ export const CHANNEL_OPTIONS = [
   { value: 42, color: 'blue', label: 'Mistral AI' },
   { value: 8, color: 'pink', label: '自定义渠道' },
   {
-    value: 22,
-    color: 'blue',
-    label: '知识库：FastGPT',
-  },
-  {
-    value: 21,
-    color: 'purple',
-    label: '知识库：AI Proxy',
-  },
-  {
     value: 44,
     color: 'purple',
     label: '嵌入模型：MokaAI M3E',
@@ -198,7 +168,7 @@ export const CHANNEL_OPTIONS = [
 
 // Channel types that support upstream model list fetching in UI.
 export const MODEL_FETCHABLE_CHANNEL_TYPES = new Set([
-  1, 4, 14, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43, 58, 59,
+  1, 4, 34, 17, 26, 27, 24, 47, 25, 20, 23, 31, 40, 42, 48, 43, 58, 59,
 ]);
 
 export const MODEL_TABLE_PAGE_SIZE = 10;

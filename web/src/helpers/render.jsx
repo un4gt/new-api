@@ -34,7 +34,6 @@ import {
   Minimax,
   Wenxin,
   Spark,
-  Midjourney,
   Hunyuan,
   Cohere,
   Cloudflare,
@@ -51,7 +50,6 @@ import {
   Dify,
   Coze,
   SiliconCloud,
-  FastGPT,
   Kling,
   Jimeng,
   Perplexity,
@@ -64,7 +62,6 @@ import {
   MessageSquare,
   Key,
   BarChart3,
-  Image as ImageIcon,
   CheckSquare,
   CreditCard,
   Layers,
@@ -127,8 +124,6 @@ export function getLucideIcon(key, selected = false) {
       return <Key {...commonProps} color={iconColor} />;
     case 'log':
       return <BarChart3 {...commonProps} color={iconColor} />;
-    case 'midjourney':
-      return <ImageIcon {...commonProps} color={iconColor} />;
     case 'task':
       return <CheckSquare {...commonProps} color={iconColor} />;
     case 'topup':
@@ -249,11 +244,6 @@ export const getModelCategories = (() => {
         icon: <Spark.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('spark'),
       },
-      midjourney: {
-        label: 'Midjourney',
-        icon: <Midjourney />,
-        filter: (model) => model.model_name.toLowerCase().includes('mj_'),
-      },
       tencent: {
         label: t('腾讯混元'),
         icon: <Hunyuan.Color />,
@@ -331,16 +321,10 @@ export function getChannelIcon(channelType) {
     case 1: // OpenAI
     case 3: // Azure OpenAI
       return <OpenAI size={iconSize} />;
-    case 2: // Midjourney Proxy
-    case 5: // Midjourney Proxy Plus
-      return <Midjourney size={iconSize} />;
     case 36: // Suno API
       return <Suno size={iconSize} />;
     case 4: // Ollama
       return <Ollama size={iconSize} />;
-    case 14: // Anthropic Claude
-    case 33: // AWS Claude
-      return <Claude.Color size={iconSize} />;
     case 41: // Vertex AI
       return <Gemini.Color size={iconSize} />;
     case 34: // Cohere
@@ -405,9 +389,6 @@ export function getChannelIcon(channelType) {
     case 56: // Replicate
       return <Replicate size={iconSize} />;
     case 8: // 自定义渠道
-    case 22: // 知识库：FastGPT
-      return <FastGPT.Color size={iconSize} />;
-    case 21: // 知识库：AI Proxy
     case 44: // 嵌入模型：MokaAI M3E
     default:
       return null; // 未知类型或自定义渠道不显示图标
