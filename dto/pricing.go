@@ -11,13 +11,6 @@ type OpenAIModels struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 }
 
-type AnthropicModel struct {
-	ID          string `json:"id"`
-	CreatedAt   string `json:"created_at"`
-	DisplayName string `json:"display_name"`
-	Type        string `json:"type"`
-}
-
 type GeminiModel struct {
 	Name                       interface{}   `json:"name"`
 	BaseModelId                interface{}   `json:"baseModelId"`

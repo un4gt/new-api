@@ -3,10 +3,10 @@ package constant
 const (
 	ChannelTypeUnknown        = 0
 	ChannelTypeOpenAI         = 1
-	ChannelTypeMidjourney     = 2
+	ChannelTypeMidjourney     = 2 // removed
 	ChannelTypeAzure          = 3
 	ChannelTypeOllama         = 4
-	ChannelTypeMidjourneyPlus = 5
+	ChannelTypeMidjourneyPlus = 5 // removed
 	ChannelTypeOpenAIMax      = 6
 	ChannelTypeOhMyGPT        = 7
 	ChannelTypeCustom         = 8
@@ -15,22 +15,22 @@ const (
 	ChannelTypePaLM           = 11
 	ChannelTypeAPI2GPT        = 12
 	ChannelTypeAIGC2D         = 13
-	ChannelTypeAnthropic      = 14
+	ChannelTypeAnthropic      = 14 // removed
 	ChannelTypeBaidu          = 15
 	ChannelTypeZhipu          = 16
 	ChannelTypeAli            = 17
 	ChannelTypeXunfei         = 18
 	ChannelType360            = 19
 	ChannelTypeOpenRouter     = 20
-	ChannelTypeAIProxyLibrary = 21
-	ChannelTypeFastGPT        = 22
+	ChannelTypeAIProxyLibrary = 21 // removed
+	ChannelTypeFastGPT        = 22 // removed
 	ChannelTypeTencent        = 23
 	ChannelTypeGemini         = 24
 	ChannelTypeMoonshot       = 25
 	ChannelTypeZhipu_v4       = 26
 	ChannelTypePerplexity     = 27
 	ChannelTypeLingYiWanWu    = 31
-	ChannelTypeAws            = 33
+	ChannelTypeAws            = 33 // removed
 	ChannelTypeCohere         = 34
 	ChannelTypeMiniMax        = 35
 	ChannelTypeSunoAPI        = 36
@@ -63,10 +63,10 @@ const (
 var ChannelBaseURLs = []string{
 	"",                                    // 0
 	"https://api.openai.com",              // 1
-	"https://oa.api2d.net",                // 2
+	"",                                    // 2 removed (Midjourney)
 	"",                                    // 3
 	"http://localhost:11434",              // 4
-	"https://api.openai-sb.com",           // 5
+	"",                                    // 5 removed (Midjourney Plus)
 	"https://api.openaimax.com",           // 6
 	"https://api.ohmygpt.com",             // 7
 	"",                                    // 8
@@ -75,15 +75,15 @@ var ChannelBaseURLs = []string{
 	"",                                    // 11
 	"https://api.api2gpt.com",             // 12
 	"https://api.aigc2d.com",              // 13
-	"https://api.anthropic.com",           // 14
+	"",                                    // 14 removed (Anthropic)
 	"https://aip.baidubce.com",            // 15
 	"https://open.bigmodel.cn",            // 16
 	"https://dashscope.aliyuncs.com",      // 17
 	"",                                    // 18
 	"https://api.360.cn",                  // 19
 	"https://openrouter.ai/api",           // 20
-	"https://api.aiproxy.io",              // 21
-	"https://fastgpt.run/api/openapi",     // 22
+	"",                                    // 21 removed (AI Proxy Library)
+	"",                                    // 22 removed (FastGPT)
 	"https://hunyuan.tencentcloudapi.com", //23
 	"https://generativelanguage.googleapis.com", //24
 	"https://api.moonshot.cn",                   //25
@@ -94,7 +94,7 @@ var ChannelBaseURLs = []string{
 	"",                                          //30
 	"https://api.lingyiwanwu.com",               //31
 	"",                                          //32
-	"",                                          //33
+	"",                                          //33 removed (AWS)
 	"https://api.cohere.ai",                     //34
 	"https://api.minimax.chat",                  //35
 	"",                                          //36
@@ -124,61 +124,61 @@ var ChannelBaseURLs = []string{
 }
 
 var ChannelTypeNames = map[int]string{
-	ChannelTypeUnknown:        "Unknown",
-	ChannelTypeOpenAI:         "OpenAI",
-	ChannelTypeMidjourney:     "Midjourney",
-	ChannelTypeAzure:          "Azure",
-	ChannelTypeOllama:         "Ollama",
-	ChannelTypeMidjourneyPlus: "MidjourneyPlus",
-	ChannelTypeOpenAIMax:      "OpenAIMax",
-	ChannelTypeOhMyGPT:        "OhMyGPT",
-	ChannelTypeCustom:         "Custom",
-	ChannelTypeAILS:           "AILS",
-	ChannelTypeAIProxy:        "AIProxy",
-	ChannelTypePaLM:           "PaLM",
-	ChannelTypeAPI2GPT:        "API2GPT",
-	ChannelTypeAIGC2D:         "AIGC2D",
-	ChannelTypeAnthropic:      "Anthropic",
-	ChannelTypeBaidu:          "Baidu",
-	ChannelTypeZhipu:          "Zhipu",
-	ChannelTypeAli:            "Ali",
-	ChannelTypeXunfei:         "Xunfei",
-	ChannelType360:            "360",
-	ChannelTypeOpenRouter:     "OpenRouter",
-	ChannelTypeAIProxyLibrary: "AIProxyLibrary",
-	ChannelTypeFastGPT:        "FastGPT",
-	ChannelTypeTencent:        "Tencent",
-	ChannelTypeGemini:         "Gemini",
-	ChannelTypeMoonshot:       "Moonshot",
-	ChannelTypeZhipu_v4:       "ZhipuV4",
-	ChannelTypePerplexity:     "Perplexity",
-	ChannelTypeLingYiWanWu:    "LingYiWanWu",
-	ChannelTypeAws:            "AWS",
-	ChannelTypeCohere:         "Cohere",
-	ChannelTypeMiniMax:        "MiniMax",
-	ChannelTypeSunoAPI:        "SunoAPI",
-	ChannelTypeDify:           "Dify",
-	ChannelTypeJina:           "Jina",
-	ChannelCloudflare:         "Cloudflare",
-	ChannelTypeSiliconFlow:    "SiliconFlow",
-	ChannelTypeVertexAi:       "VertexAI",
-	ChannelTypeMistral:        "Mistral",
-	ChannelTypeDeepSeek:       "DeepSeek",
-	ChannelTypeMokaAI:         "MokaAI",
-	ChannelTypeVolcEngine:     "VolcEngine",
-	ChannelTypeBaiduV2:        "BaiduV2",
-	ChannelTypeXinference:     "Xinference",
-	ChannelTypeXai:            "xAI",
-	ChannelTypeCoze:           "Coze",
-	ChannelTypeKling:          "Kling",
-	ChannelTypeJimeng:         "Jimeng",
-	ChannelTypeVidu:           "Vidu",
-	ChannelTypeSubmodel:       "Submodel",
-	ChannelTypeDoubaoVideo:    "DoubaoVideo",
-	ChannelTypeSora:           "Sora",
-	ChannelTypeReplicate:      "Replicate",
-	ChannelTypeMoark:          "Moark",
-	ChannelTypeNvidia:         "Nvidia",
+	ChannelTypeUnknown: "Unknown",
+	ChannelTypeOpenAI:  "OpenAI",
+	// ChannelTypeMidjourney removed
+	ChannelTypeAzure:  "Azure",
+	ChannelTypeOllama: "Ollama",
+	// ChannelTypeMidjourneyPlus removed
+	ChannelTypeOpenAIMax: "OpenAIMax",
+	ChannelTypeOhMyGPT:   "OhMyGPT",
+	ChannelTypeCustom:    "Custom",
+	ChannelTypeAILS:      "AILS",
+	ChannelTypeAIProxy:   "AIProxy",
+	ChannelTypePaLM:      "PaLM",
+	ChannelTypeAPI2GPT:   "API2GPT",
+	ChannelTypeAIGC2D:    "AIGC2D",
+	// ChannelTypeAnthropic removed
+	ChannelTypeBaidu:      "Baidu",
+	ChannelTypeZhipu:      "Zhipu",
+	ChannelTypeAli:        "Ali",
+	ChannelTypeXunfei:     "Xunfei",
+	ChannelType360:        "360",
+	ChannelTypeOpenRouter: "OpenRouter",
+	// ChannelTypeAIProxyLibrary removed
+	// ChannelTypeFastGPT removed
+	ChannelTypeTencent:     "Tencent",
+	ChannelTypeGemini:      "Gemini",
+	ChannelTypeMoonshot:    "Moonshot",
+	ChannelTypeZhipu_v4:    "ZhipuV4",
+	ChannelTypePerplexity:  "Perplexity",
+	ChannelTypeLingYiWanWu: "LingYiWanWu",
+	// ChannelTypeAws removed
+	ChannelTypeCohere:      "Cohere",
+	ChannelTypeMiniMax:     "MiniMax",
+	ChannelTypeSunoAPI:     "SunoAPI",
+	ChannelTypeDify:        "Dify",
+	ChannelTypeJina:        "Jina",
+	ChannelCloudflare:      "Cloudflare",
+	ChannelTypeSiliconFlow: "SiliconFlow",
+	ChannelTypeVertexAi:    "VertexAI",
+	ChannelTypeMistral:     "Mistral",
+	ChannelTypeDeepSeek:    "DeepSeek",
+	ChannelTypeMokaAI:      "MokaAI",
+	ChannelTypeVolcEngine:  "VolcEngine",
+	ChannelTypeBaiduV2:     "BaiduV2",
+	ChannelTypeXinference:  "Xinference",
+	ChannelTypeXai:         "xAI",
+	ChannelTypeCoze:        "Coze",
+	ChannelTypeKling:       "Kling",
+	ChannelTypeJimeng:      "Jimeng",
+	ChannelTypeVidu:        "Vidu",
+	ChannelTypeSubmodel:    "Submodel",
+	ChannelTypeDoubaoVideo: "DoubaoVideo",
+	ChannelTypeSora:        "Sora",
+	ChannelTypeReplicate:   "Replicate",
+	ChannelTypeMoark:       "Moark",
+	ChannelTypeNvidia:      "Nvidia",
 }
 
 func GetChannelTypeName(channelType int) string {

@@ -140,8 +140,6 @@ func TaskPollingLoop() {
 // DispatchPlatformUpdate 按平台分发轮询更新
 func DispatchPlatformUpdate(platform constant.TaskPlatform, taskChannelM map[int][]string, taskM map[string]*model.Task) {
 	switch platform {
-	case constant.TaskPlatformMidjourney:
-		// MJ 轮询由其自身处理，这里预留入口
 	case constant.TaskPlatformSuno:
 		_ = UpdateSunoTasks(context.Background(), taskChannelM, taskM)
 	default:

@@ -37,7 +37,6 @@ func SetRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 				strings.HasPrefix(requestURI, "/embeddings") ||
 				strings.HasPrefix(requestURI, "/rerank") ||
 				strings.HasPrefix(requestURI, "/pg") ||
-				strings.HasPrefix(requestURI, "/mj") ||
 				strings.HasPrefix(requestURI, "/suno") ||
 				strings.HasPrefix(requestURI, "/kling") ||
 				strings.HasPrefix(requestURI, "/jimeng") {

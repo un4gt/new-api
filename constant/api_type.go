@@ -1,20 +1,20 @@
 package constant
 
 const (
-	APITypeOpenAI = iota
-	APITypeAnthropic
+	APITypeOpenAI    = iota
+	APITypeAnthropic // removed
 	APITypePaLM
 	APITypeBaidu
 	APITypeZhipu
 	APITypeAli
 	APITypeXunfei
-	APITypeAIProxyLibrary
+	APITypeAIProxyLibrary // removed
 	APITypeTencent
 	APITypeGemini
 	APITypeZhipuV4
 	APITypeOllama
 	APITypePerplexity
-	APITypeAws
+	APITypeAws // removed
 	APITypeCohere
 	APITypeDify
 	APITypeJina

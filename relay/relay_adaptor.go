@@ -6,10 +6,8 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/ali"
-	"github.com/QuantumNous/new-api/relay/channel/aws"
 	"github.com/QuantumNous/new-api/relay/channel/baidu"
 	"github.com/QuantumNous/new-api/relay/channel/baidu_v2"
-	"github.com/QuantumNous/new-api/relay/channel/claude"
 	"github.com/QuantumNous/new-api/relay/channel/cloudflare"
 	"github.com/QuantumNous/new-api/relay/channel/cohere"
 	"github.com/QuantumNous/new-api/relay/channel/coze"
@@ -55,8 +53,6 @@ func GetAdaptor(apiType int) channel.Adaptor {
 	switch apiType {
 	case constant.APITypeAli:
 		return &ali.Adaptor{}
-	case constant.APITypeAnthropic:
-		return &claude.Adaptor{}
 	case constant.APITypeBaidu:
 		return &baidu.Adaptor{}
 	case constant.APITypeGemini:
@@ -77,8 +73,6 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &ollama.Adaptor{}
 	case constant.APITypePerplexity:
 		return &perplexity.Adaptor{}
-	case constant.APITypeAws:
-		return &aws.Adaptor{}
 	case constant.APITypeCohere:
 		return &cohere.Adaptor{}
 	case constant.APITypeDify:
@@ -137,8 +131,6 @@ func GetTaskPlatform(c *gin.Context) constant.TaskPlatform {
 
 func GetTaskAdaptor(platform constant.TaskPlatform) channel.TaskAdaptor {
 	switch platform {
-	//case constant.APITypeAIProxyLibrary:
-	//	return &aiproxy.Adaptor{}
 	case constant.TaskPlatformSuno:
 		return &suno.TaskAdaptor{}
 	}

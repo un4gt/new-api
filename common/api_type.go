@@ -7,8 +7,6 @@ func ChannelType2APIType(channelType int) (int, bool) {
 	switch channelType {
 	case constant.ChannelTypeOpenAI:
 		apiType = constant.APITypeOpenAI
-	case constant.ChannelTypeAnthropic:
-		apiType = constant.APITypeAnthropic
 	case constant.ChannelTypeBaidu:
 		apiType = constant.APITypeBaidu
 	case constant.ChannelTypePaLM:
@@ -19,8 +17,6 @@ func ChannelType2APIType(channelType int) (int, bool) {
 		apiType = constant.APITypeAli
 	case constant.ChannelTypeXunfei:
 		apiType = constant.APITypeXunfei
-	case constant.ChannelTypeAIProxyLibrary:
-		apiType = constant.APITypeAIProxyLibrary
 	case constant.ChannelTypeTencent:
 		apiType = constant.APITypeTencent
 	case constant.ChannelTypeGemini:
@@ -31,8 +27,6 @@ func ChannelType2APIType(channelType int) (int, bool) {
 		apiType = constant.APITypeOllama
 	case constant.ChannelTypePerplexity:
 		apiType = constant.APITypePerplexity
-	case constant.ChannelTypeAws:
-		apiType = constant.APITypeAws
 	case constant.ChannelTypeCohere:
 		apiType = constant.APITypeCohere
 	case constant.ChannelTypeDify:

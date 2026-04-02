@@ -19,18 +19,12 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 		endpointTypes = []constant.EndpointType{
 			constant.EndpointTypeEmbeddings,
 		}
-	//case constant.ChannelTypeMidjourney, constant.ChannelTypeMidjourneyPlus:
-	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeMidjourney}
 	//case constant.ChannelTypeSunoAPI:
 	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeSuno}
 	//case constant.ChannelTypeKling:
 	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeKling}
 	//case constant.ChannelTypeJimeng:
 	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeJimeng}
-	case constant.ChannelTypeAws:
-		fallthrough
-	case constant.ChannelTypeAnthropic:
-		endpointTypes = []constant.EndpointType{constant.EndpointTypeAnthropic, constant.EndpointTypeOpenAI}
 	case constant.ChannelTypeVertexAi:
 		fallthrough
 	case constant.ChannelTypeGemini:

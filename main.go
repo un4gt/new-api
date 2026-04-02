@@ -123,9 +123,6 @@ func main() {
 
 	if common.IsMasterNode && constant.UpdateTask {
 		gopool.Go(func() {
-			controller.UpdateMidjourneyTaskBulk()
-		})
-		gopool.Go(func() {
 			controller.UpdateTaskBulk()
 		})
 	}

@@ -14,7 +14,6 @@ const (
 	EndpointTypeSentenceSimilarity    EndpointType = "sentence-similarity"
 	EndpointTypeRerankMultimodal      EndpointType = "rerank-multimodal"
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
-	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"
 	//EndpointTypeSuno           EndpointType = "suno-proxy"
 	//EndpointTypeKling          EndpointType = "kling"
 	//EndpointTypeJimeng         EndpointType = "jimeng"

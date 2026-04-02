@@ -28,7 +28,6 @@ func SetWebRouter(router *gin.Engine, buildFS embed.FS, indexPage []byte) {
 			strings.HasPrefix(c.Request.RequestURI, "/api") ||
 			strings.HasPrefix(c.Request.RequestURI, "/assets") ||
 			strings.HasPrefix(c.Request.RequestURI, "/pg") ||
-			strings.HasPrefix(c.Request.RequestURI, "/mj") ||
 			strings.HasPrefix(c.Request.RequestURI, "/suno") ||
 			strings.HasPrefix(c.Request.RequestURI, "/kling") ||
 			strings.HasPrefix(c.Request.RequestURI, "/jimeng") {

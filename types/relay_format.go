@@ -16,6 +16,5 @@ const (
 	RelayFormatSentenceSimilarity                    = "sentence_similarity"
 	RelayFormatRerankMultimodal                      = "rerank_multimodal"
 
-	RelayFormatTask    = "task"
-	RelayFormatMjProxy = "mj_proxy"
+	RelayFormatTask = "task"
 )
