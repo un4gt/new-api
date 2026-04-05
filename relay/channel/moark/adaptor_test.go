@@ -101,6 +101,29 @@ func TestMoarkAdaptorSetupRequestHeader(t *testing.T) {
 	require.Equal(t, "application/json", headers.Get("Accept"))
 }
 
+func TestMoarkAdaptorSetupRequestHeaderPassesThroughFailoverHeader(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Request.Header.Set("X-Failover-Enabled", "true")
+
+	headers := http.Header{}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "test-key",
+		},
+	}
+
+	adaptor := &Adaptor{}
+	err := adaptor.SetupRequestHeader(ctx, &headers, info)
+	require.NoError(t, err)
+	require.Equal(t, "true", headers.Get("X-Failover-Enabled"))
+}
+
 func TestMoarkAdaptorDoResponse_RoutesSentenceSimilarity(t *testing.T) {
 	t.Parallel()
 

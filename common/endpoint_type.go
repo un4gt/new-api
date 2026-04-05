@@ -9,6 +9,10 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 	case constant.ChannelTypeJina:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeJinaRerank}
 	case constant.ChannelTypeMoark:
+		if preciseEndpointTypes := constant.GetMoarkEndpointTypes(modelName); len(preciseEndpointTypes) > 0 {
+			endpointTypes = preciseEndpointTypes
+			break
+		}
 		endpointTypes = []constant.EndpointType{
 			constant.EndpointTypeEmbeddings,
 			constant.EndpointTypeJinaRerank,

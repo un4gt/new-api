@@ -42,6 +42,8 @@ type testResult struct {
 	newAPIError *types.NewAPIError
 }
 
+const moarkTestImageBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF9sAAAAASUVORK5CYII="
+
 func normalizeChannelTestEndpoint(channel *model.Channel, modelName, endpointType string) string {
 	normalized := strings.TrimSpace(endpointType)
 	if normalized != "" {
@@ -51,6 +53,51 @@ func normalizeChannelTestEndpoint(channel *model.Channel, modelName, endpointTyp
 		return string(constant.EndpointTypeOpenAIResponseCompact)
 	}
 	return normalized
+}
+
+func detectTestRequestPath(channel *model.Channel, testModel string, endpointType string) string {
+	requestPath := "/v1/chat/completions"
+
+	if endpointType != "" {
+		if endpointInfo, ok := common.GetDefaultEndpointInfo(constant.EndpointType(endpointType)); ok {
+			return endpointInfo.Path
+		}
+		return requestPath
+	}
+
+	if channel != nil && channel.Type == constant.ChannelTypeMoark {
+		if preciseEndpointTypes := constant.GetMoarkEndpointTypes(testModel); len(preciseEndpointTypes) == 1 {
+			if endpointInfo, ok := common.GetDefaultEndpointInfo(preciseEndpointTypes[0]); ok {
+				return endpointInfo.Path
+			}
+		}
+	}
+
+	if strings.Contains(strings.ToLower(testModel), "rerank") {
+		requestPath = "/v1/rerank"
+	}
+
+	if strings.Contains(strings.ToLower(testModel), "embedding") ||
+		strings.HasPrefix(testModel, "m3e") ||
+		strings.Contains(testModel, "bge-") ||
+		strings.Contains(testModel, "embed") ||
+		(channel != nil && channel.Type == constant.ChannelTypeMokaAI) {
+		requestPath = "/v1/embeddings"
+	}
+
+	if channel != nil && channel.Type == constant.ChannelTypeVolcEngine && strings.Contains(testModel, "seedream") {
+		requestPath = "/v1/images/generations"
+	}
+
+	if strings.Contains(strings.ToLower(testModel), "codex") {
+		requestPath = "/v1/responses"
+	}
+
+	if strings.HasSuffix(testModel, ratio_setting.CompactModelSuffix) {
+		requestPath = "/v1/responses/compact"
+	}
+
+	return requestPath
 }
 
 func testChannel(channel *model.Channel, testModel string, endpointType string, isStream bool) testResult {
@@ -88,44 +135,7 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 
 	endpointType = normalizeChannelTestEndpoint(channel, testModel, endpointType)
 
-	requestPath := "/v1/chat/completions"
-
-	// 如果指定了端点类型，使用指定的端点类型
-	if endpointType != "" {
-		if endpointInfo, ok := common.GetDefaultEndpointInfo(constant.EndpointType(endpointType)); ok {
-			requestPath = endpointInfo.Path
-		}
-	} else {
-		// 如果没有指定端点类型，使用原有的自动检测逻辑
-
-		if strings.Contains(strings.ToLower(testModel), "rerank") {
-			requestPath = "/v1/rerank"
-		}
-
-		// 先判断是否为 Embedding 模型
-		if strings.Contains(strings.ToLower(testModel), "embedding") ||
-			strings.HasPrefix(testModel, "m3e") || // m3e 系列模型
-			strings.Contains(testModel, "bge-") || // bge 系列模型
-			strings.Contains(testModel, "embed") ||
-			channel.Type == constant.ChannelTypeMokaAI { // 其他 embedding 模型
-			requestPath = "/v1/embeddings" // 修改请求路径
-		}
-
-		// VolcEngine 图像生成模型
-		if channel.Type == constant.ChannelTypeVolcEngine && strings.Contains(testModel, "seedream") {
-			requestPath = "/v1/images/generations"
-		}
-
-		// responses-only models
-		if strings.Contains(strings.ToLower(testModel), "codex") {
-			requestPath = "/v1/responses"
-		}
-
-		// responses compaction models (must use /v1/responses/compact)
-		if strings.HasSuffix(testModel, ratio_setting.CompactModelSuffix) {
-			requestPath = "/v1/responses/compact"
-		}
-	}
+	requestPath := detectTestRequestPath(channel, testModel, endpointType)
 	if strings.HasPrefix(requestPath, "/v1/responses/compact") {
 		testModel = ratio_setting.WithCompactModelSuffix(testModel)
 	}
@@ -148,6 +158,9 @@ func testChannel(channel *model.Channel, testModel string, endpointType string, 
 
 	//c.Request.Header.Set("Authorization", "Bearer "+channel.Key)
 	c.Request.Header.Set("Content-Type", "application/json")
+	if channel.Type == constant.ChannelTypeMoark && testModel == "jina-clip-v1" {
+		c.Request.Header.Set("X-Failover-Enabled", "true")
+	}
 	c.Set("channel", channel.Type)
 	c.Set("base_url", channel.GetBaseURL())
 	group, _ := model.GetUserGroup(1, false)
@@ -604,6 +617,52 @@ func detectErrorMessageFromJSONBytes(jsonBytes []byte) string {
 	return message
 }
 
+func buildMoarkEmbeddingTestRequest(model string) *dto.EmbeddingRequest {
+	if constant.IsMoarkMultimodalEmbeddingModel(model) {
+		return &dto.EmbeddingRequest{
+			Model: model,
+			Input: []any{
+				map[string]any{"text": "a blue cat"},
+				map[string]any{"text": "a dog"},
+				map[string]any{"image": moarkTestImageBase64},
+			},
+		}
+	}
+
+	if model == "nomic-embed-code" {
+		return &dto.EmbeddingRequest{
+			Model: model,
+			Input: "Today is a sunny day and I will get some ice cream.",
+		}
+	}
+
+	return &dto.EmbeddingRequest{
+		Model: model,
+		Input: []any{"hello world"},
+	}
+}
+
+func buildMoarkRerankMultimodalTestRequest(model string) *dto.RerankMultimodalRequest {
+	docText1 := "text 1"
+	docText2 := "text 2"
+	queryImage := moarkTestImageBase64
+	docImage := moarkTestImageBase64
+	returnDocs := false
+
+	return &dto.RerankMultimodalRequest{
+		Model: model,
+		Query: dto.RerankMultimodalItem{
+			Image: &queryImage,
+		},
+		Documents: []dto.RerankMultimodalItem{
+			{Text: &docText1},
+			{Text: &docText2},
+			{Image: &docImage},
+		},
+		ReturnDocuments: &returnDocs,
+	}
+}
+
 func buildTestRequest(model string, endpointType string, channel *model.Channel, isStream bool) dto.Request {
 	testResponsesInput := json.RawMessage(`[{"role":"user","content":"hi"}]`)
 
@@ -611,6 +670,9 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 	if endpointType != "" {
 		switch constant.EndpointType(endpointType) {
 		case constant.EndpointTypeEmbeddings:
+			if channel != nil && channel.Type == constant.ChannelTypeMoark {
+				return buildMoarkEmbeddingTestRequest(model)
+			}
 			// 返回 EmbeddingRequest
 			req := &dto.EmbeddingRequest{
 				Model: model,
@@ -653,6 +715,9 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 				Normalize: &normalize,
 			}
 		case constant.EndpointTypeRerankMultimodal:
+			if channel != nil && channel.Type == constant.ChannelTypeMoark {
+				return buildMoarkRerankMultimodalTestRequest(model)
+			}
 			queryText := "find the most relevant content"
 			docText := "a short paragraph about deep learning"
 			docText2 := "a sentence about weather forecast"
@@ -706,6 +771,15 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 	}
 
 	// 自动检测逻辑（保持原有行为）
+	if channel != nil && channel.Type == constant.ChannelTypeMoark {
+		if constant.IsMoarkMultimodalRerankModel(model) {
+			return buildMoarkRerankMultimodalTestRequest(model)
+		}
+		if constant.IsMoarkEmbeddingModel(model) {
+			return buildMoarkEmbeddingTestRequest(model)
+		}
+	}
+
 	if strings.Contains(strings.ToLower(model), "rerank") {
 		return &dto.RerankRequest{
 			Model:     model,
