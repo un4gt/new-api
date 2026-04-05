@@ -1,10 +1,14 @@
 package helper
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"mime/multipart"
+	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -159,6 +163,11 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 		logger.LogError(c, fmt.Sprintf("getAndValidateTextRequest failed: %s", err.Error()))
 		return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	if strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := patchEmbeddingRequestFromMultipart(c, embeddingRequest); err != nil {
+			return nil, types.NewError(err, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+	}
 
 	if embeddingRequest.Input == nil {
 		return nil, fmt.Errorf("input is empty")
@@ -170,6 +179,79 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 		embeddingRequest.Model = c.Param("model")
 	}
 	return embeddingRequest, nil
+}
+
+func patchEmbeddingRequestFromMultipart(c *gin.Context, embeddingRequest *dto.EmbeddingRequest) error {
+	formData, err := common.ParseMultipartFormReusable(c)
+	if err != nil {
+		return fmt.Errorf("failed to parse multipart form: %w", err)
+	}
+	if embeddingRequest.Model == "" {
+		if models, ok := formData.Value["model"]; ok && len(models) > 0 {
+			embeddingRequest.Model = strings.TrimSpace(models[0])
+		}
+	}
+	if !isNVDinoV2EmbeddingModel(embeddingRequest.Model) {
+		return nil
+	}
+	if embeddingRequest.Input != nil {
+		return nil
+	}
+	fileHeader := firstEmbeddingMultipartFile(formData)
+	if fileHeader == nil {
+		return nil
+	}
+	inputDataURL, err := multipartFileToDataURL(fileHeader)
+	if err != nil {
+		return err
+	}
+	embeddingRequest.Input = inputDataURL
+	return nil
+}
+
+func firstEmbeddingMultipartFile(formData *multipart.Form) *multipart.FileHeader {
+	fieldOrder := []string{"input", "image", "input_reference", "file"}
+	for _, field := range fieldOrder {
+		files, ok := formData.File[field]
+		if ok && len(files) > 0 {
+			return files[0]
+		}
+	}
+	for _, files := range formData.File {
+		if len(files) > 0 {
+			return files[0]
+		}
+	}
+	return nil
+}
+
+func multipartFileToDataURL(fileHeader *multipart.FileHeader) (string, error) {
+	file, err := fileHeader.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open multipart file %s: %w", fileHeader.Filename, err)
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("failed to read multipart file %s: %w", fileHeader.Filename, err)
+	}
+
+	mimeType := strings.TrimSpace(fileHeader.Header.Get("Content-Type"))
+	if mimeType == "" || mimeType == "application/octet-stream" {
+		mimeType = http.DetectContentType(fileBytes)
+	}
+	if mimeType == "" {
+		mimeType = "image/jpeg"
+	}
+
+	base64Data := base64.StdEncoding.EncodeToString(fileBytes)
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data), nil
+}
+
+func isNVDinoV2EmbeddingModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return model == "nvidia/nv-dinov2" || model == "nv-dinov2"
 }
 
 func GetAndValidateResponsesRequest(c *gin.Context) (*dto.OpenAIResponsesRequest, error) {

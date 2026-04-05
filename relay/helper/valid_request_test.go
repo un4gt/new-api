@@ -2,11 +2,14 @@ package helper
 
 import (
 	"bytes"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -164,4 +167,83 @@ func TestGetAndValidateRerankMultimodalRequest_DocumentInvalidOneOf(t *testing.T
 	require.Nil(t, req)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "documents[0] must contain exactly one of text or image")
+}
+
+func TestGetAndValidateEmbeddingRequest_MultipartFileInput(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "nvidia/nv-dinov2"))
+
+	part, err := writer.CreateFormFile("input", "tiny.png")
+	require.NoError(t, err)
+	// 1x1 transparent PNG
+	_, err = part.Write([]byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+		0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+		0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+		0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+		0x42, 0x60, 0x82,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	ctx.Request = req
+
+	embeddingReq, err := GetAndValidateEmbeddingRequest(ctx, relayconstant.RelayModeEmbeddings)
+	require.NoError(t, err)
+	require.NotNil(t, embeddingReq)
+	require.Equal(t, "nvidia/nv-dinov2", embeddingReq.Model)
+
+	inputStr, ok := embeddingReq.Input.(string)
+	require.True(t, ok)
+	require.True(t, strings.HasPrefix(inputStr, "data:image/png;base64,"))
+}
+
+func TestGetAndValidateEmbeddingRequest_MultipartFileInputNonNVDinoV2(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "nvidia/nv-embed-v1"))
+
+	part, err := writer.CreateFormFile("input", "tiny.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+		0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+		0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+		0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+		0x42, 0x60, 0x82,
+	})
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	ctx.Request = req
+
+	embeddingReq, err := GetAndValidateEmbeddingRequest(ctx, relayconstant.RelayModeEmbeddings)
+	require.Nil(t, embeddingReq)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "input is empty")
 }

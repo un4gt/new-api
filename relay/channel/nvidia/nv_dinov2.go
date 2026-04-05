@@ -1,9 +1,12 @@
 package nvidia
 
 import (
+	"bytes"
 	bytes2 "bytes"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/jpeg"
 	"io"
 	"net/http"
 	"strings"
@@ -15,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/image/webp"
 )
 
 const (
@@ -94,12 +98,15 @@ func buildNVDinoV2RequestAndRuntimeHeadersImpl(c *gin.Context, info *relaycommon
 		return nil, nil, fmt.Errorf("failed to read image content: %w", err)
 	}
 
-	mimeType := normalizeImageMimeType(cachedData.MimeType)
+	base64Data, mimeType, payloadSize, err := normalizeNVDinoV2ImagePayload(base64Data, cachedData)
+	if err != nil {
+		return nil, nil, err
+	}
 	if mimeType == "" {
 		mimeType = nvDinoV2DefaultImageMime
 	}
 
-	if cachedData.Size < nvDinoV2InlineImageMaxBytes {
+	if payloadSize < nvDinoV2InlineImageMaxBytes {
 		payload := &nvDinoV2Request{
 			Messages: []nvDinoV2Message{
 				{
@@ -184,6 +191,72 @@ func normalizeImageMimeType(mimeType string) string {
 	default:
 		return nvDinoV2DefaultImageMime
 	}
+}
+
+func normalizeNVDinoV2ImagePayload(base64Data string, cachedData *types.CachedFileData) (string, string, int64, error) {
+	if cachedData == nil {
+		return base64Data, nvDinoV2DefaultImageMime, 0, nil
+	}
+
+	binaryData, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		return "", "", 0, fmt.Errorf("failed to decode base64 image: %w", err)
+	}
+
+	detectedMimeType := detectMimeTypeFromImageFormat(cachedData.ImageFormat)
+	if detectedMimeType != "" {
+		if detectedMimeType == "image/jpeg" || detectedMimeType == "image/png" {
+			return base64Data, detectedMimeType, int64(len(binaryData)), nil
+		}
+
+		// Convert unsupported but decodable formats (e.g. webp) to jpeg.
+		convertedBase64, convertedSize, convErr := transcodeImageToJPEG(binaryData)
+		if convErr == nil {
+			return convertedBase64, "image/jpeg", convertedSize, nil
+		}
+	}
+
+	mimeType := normalizeImageMimeType(cachedData.MimeType)
+	if mimeType == "" {
+		mimeType = nvDinoV2DefaultImageMime
+	}
+	return base64Data, mimeType, int64(len(binaryData)), nil
+}
+
+func detectMimeTypeFromImageFormat(format string) string {
+	switch strings.TrimSpace(strings.ToLower(format)) {
+	case "jpeg", "jpg":
+		return "image/jpeg"
+	case "png":
+		return "image/png"
+	case "webp":
+		return "image/webp"
+	case "gif":
+		return "image/gif"
+	case "bmp":
+		return "image/bmp"
+	case "tiff":
+		return "image/tiff"
+	default:
+		return ""
+	}
+}
+
+func transcodeImageToJPEG(binaryData []byte) (string, int64, error) {
+	img, _, err := image.Decode(bytes.NewReader(binaryData))
+	if err != nil {
+		decodedWebP, webpErr := webp.Decode(bytes.NewReader(binaryData))
+		if webpErr != nil {
+			return "", 0, err
+		}
+		img = decodedWebP
+	}
+	var buf bytes.Buffer
+	if err = jpeg.Encode(&buf, img, &jpeg.Options{Quality: 95}); err != nil {
+		return "", 0, err
+	}
+	out := buf.Bytes()
+	return base64.StdEncoding.EncodeToString(out), int64(len(out)), nil
 }
 
 func uploadNvcfAsset(c *gin.Context, info *relaycommon.RelayInfo, base64Data string, mimeType string, description string) (string, error) {

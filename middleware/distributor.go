@@ -236,12 +236,27 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 			modelRequest.Model = modelName
 		}
 		c.Set("relay_mode", relayMode)
-	} else if !strings.HasPrefix(c.Request.URL.Path, "/v1/audio/transcriptions") && !strings.Contains(c.Request.Header.Get("Content-Type"), "multipart/form-data") {
-		req, err := getModelFromRequest(c)
-		if err != nil {
-			return nil, false, err
+	} else if !strings.HasPrefix(c.Request.URL.Path, "/v1/audio/transcriptions") {
+		contentType := c.Request.Header.Get("Content-Type")
+		if strings.Contains(contentType, "multipart/form-data") {
+			// Embeddings endpoint can receive multipart uploads; still extract model
+			// from form values so channel selection works before request conversion.
+			if strings.HasSuffix(c.Request.URL.Path, "embeddings") {
+				req, err := getModelFromRequest(c)
+				if err != nil {
+					return nil, false, err
+				}
+				if isNVDinoV2ModelName(req.Model) {
+					modelRequest.Model = req.Model
+				}
+			}
+		} else {
+			req, err := getModelFromRequest(c)
+			if err != nil {
+				return nil, false, err
+			}
+			modelRequest.Model = req.Model
 		}
-		modelRequest.Model = req.Model
 	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/realtime") {
 		//wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01
@@ -398,4 +413,9 @@ func extractModelNameFromGeminiPath(path string) string {
 
 	// 返回模型名部分
 	return path[startIndex : startIndex+colonIndex]
+}
+
+func isNVDinoV2ModelName(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return model == "nvidia/nv-dinov2" || model == "nv-dinov2"
 }
