@@ -251,37 +251,18 @@ func TestBuildNVDinoV2RequestAndRuntimeHeadersSmallImage(t *testing.T) {
 	require.Equal(t, "data:image/png;base64,"+encoded, req.Messages[0].Content.ImageURL.URL)
 }
 
-func TestBuildNVDinoV2RequestAndRuntimeHeadersLargeImageUsesAssetHeaders(t *testing.T) {
-	ensureHTTPClient()
+func TestBuildNVDinoV2RequestAndRuntimeHeadersLargeImageStaysInline(t *testing.T) {
+	t.Parallel()
 
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
 
-	uploadServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, http.MethodPut, r.Method)
-		require.Equal(t, "image/jpeg", r.Header.Get("content-type"))
-		require.Equal(t, "Input Image", r.Header.Get("x-amz-meta-nvcf-asset-description"))
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer uploadServer.Close()
-
-	originalCreate := createNvcfAsset
-	createNvcfAsset = func(c *gin.Context, info *relaycommon.RelayInfo, mimeType string, description string) (*nvcfCreateAssetResponse, error) {
-		require.Equal(t, "image/jpeg", mimeType)
-		require.Equal(t, "Input Image", description)
-		return &nvcfCreateAssetResponse{
-			UploadURL: uploadServer.URL + "/upload",
-			AssetID:   "asset-large",
-		}, nil
-	}
-	defer func() {
-		createNvcfAsset = originalCreate
-	}()
-
+	// Build a very large base64 image string (size doesn't matter anymore; nv-dinov2 should inline).
 	largeBinary := bytes.Repeat([]byte{0xAB, 0xCD, 0xEF, 0x01}, 60000) // 240000 bytes
-	input := "data:image/jpeg;base64," + base64.StdEncoding.EncodeToString(largeBinary)
+	encoded := base64.StdEncoding.EncodeToString(largeBinary)
+	input := "data:image/jpeg;base64," + encoded
 
 	info := &relaycommon.RelayInfo{
 		ChannelMeta: &relaycommon.ChannelMeta{
@@ -292,10 +273,10 @@ func TestBuildNVDinoV2RequestAndRuntimeHeadersLargeImageUsesAssetHeaders(t *test
 	req, runtimeHeaders, err := buildNVDinoV2RequestAndRuntimeHeaders(ctx, info, input)
 	require.NoError(t, err)
 	require.NotNil(t, req)
-	require.NotNil(t, runtimeHeaders)
-	require.Empty(t, req.Messages)
-	require.Equal(t, "asset-large", fmt.Sprintf("%v", runtimeHeaders[strings.ToLower(nvDinoV2InputAssetReferencesHeader)]))
-	require.Equal(t, "asset-large", fmt.Sprintf("%v", runtimeHeaders[strings.ToLower(nvDinoV2FunctionAssetIDsHeader)]))
+	require.Nil(t, runtimeHeaders)
+	require.Len(t, req.Messages, 1)
+	require.Equal(t, "image_url", req.Messages[0].Content.Type)
+	require.Equal(t, "data:image/jpeg;base64,"+encoded, req.Messages[0].Content.ImageURL.URL)
 }
 
 func TestConvertNVDinoV2ResponseToOpenAI(t *testing.T) {

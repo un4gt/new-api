@@ -22,12 +22,10 @@ import (
 )
 
 const (
-	nvDinoV2InferURL = "https://ai.api.nvidia.com/v1/cv/nvidia/nv-dinov2"
-	// NVIDIA official examples branch by base64 string length (< 200_000 inline; otherwise assets API).
-	nvDinoV2InlineImageMaxBase64Chars  int64 = 200_000
-	nvDinoV2DefaultImageMime                 = "image/jpeg"
-	nvDinoV2InputAssetReferencesHeader       = "NVCF-INPUT-ASSET-REFERENCES"
-	nvDinoV2FunctionAssetIDsHeader           = "NVCF-FUNCTION-ASSET-IDS"
+	nvDinoV2InferURL                   = "https://ai.api.nvidia.com/v1/cv/nvidia/nv-dinov2"
+	nvDinoV2DefaultImageMime           = "image/jpeg"
+	nvDinoV2InputAssetReferencesHeader = "NVCF-INPUT-ASSET-REFERENCES"
+	nvDinoV2FunctionAssetIDsHeader     = "NVCF-FUNCTION-ASSET-IDS"
 )
 
 var (
@@ -106,41 +104,23 @@ func buildNVDinoV2RequestAndRuntimeHeadersImpl(c *gin.Context, info *relaycommon
 	if mimeType == "" {
 		mimeType = nvDinoV2DefaultImageMime
 	}
-	base64Size := int64(len(base64Data))
 
-	if base64Size < nvDinoV2InlineImageMaxBase64Chars {
-		payload := &nvDinoV2Request{
-			Messages: []nvDinoV2Message{
-				{
-					Content: nvDinoV2Content{
-						Type: "image_url",
-						ImageURL: nvDinoV2ImageInput{
-							URL: fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data),
-						},
+	// NOTE: NVIDIA docs suggest using the NVCF assets API for larger payloads, but in
+	// end-to-end testing the asset_id flow returns InvalidFile while inline base64 works
+	// reliably even for multi-MB JPEGs. So we always inline the image bytes for nv-dinov2.
+	payload := &nvDinoV2Request{
+		Messages: []nvDinoV2Message{
+			{
+				Content: nvDinoV2Content{
+					Type: "image_url",
+					ImageURL: nvDinoV2ImageInput{
+						URL: fmt.Sprintf("data:%s;base64,%s", mimeType, base64Data),
 					},
 				},
 			},
-		}
-		return payload, nil, nil
+		},
 	}
-
-	assetID, err := uploadNvcfAsset(c, info, base64Data, mimeType, "Input Image")
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// NVIDIA official snippets document that large images should be uploaded as assets,
-	// then referenced only via NVCF headers; body keeps empty messages.
-	payload := &nvDinoV2Request{
-		Messages: make([]nvDinoV2Message, 0),
-	}
-
-	runtimeHeaders := map[string]any{
-		strings.ToLower(nvDinoV2InputAssetReferencesHeader): assetID,
-		// Keep this optional compatibility header because NVIDIA examples include it.
-		strings.ToLower(nvDinoV2FunctionAssetIDsHeader): assetID,
-	}
-	return payload, runtimeHeaders, nil
+	return payload, nil, nil
 }
 
 func parseSingleImageInput(input any) (string, error) {
