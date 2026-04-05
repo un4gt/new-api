@@ -411,6 +411,44 @@ func TestNvidiaSetupRequestHeaderMultipartForcesJSON(t *testing.T) {
 	require.Equal(t, "application/json", headers.Get("Accept"))
 }
 
+func TestNvidiaSetupRequestHeaderNvcfHeadersPreserveCaseForDinoV2(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
+
+	headers := http.Header{}
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeEmbeddings,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey:            "nvidia-key",
+			UpstreamModelName: ModelNVDinoV2,
+		},
+		UseRuntimeHeadersOverride: true,
+		RuntimeHeadersOverride: map[string]any{
+			"nvcf-input-asset-references": "asset-123",
+			"nvcf-function-asset-ids":     "asset-123",
+		},
+	}
+
+	adaptor := &Adaptor{}
+	err := adaptor.SetupRequestHeader(ctx, &headers, info)
+	require.NoError(t, err)
+
+	// Ensure exact header keys exist in the outgoing header map.
+	require.Equal(t, []string{"asset-123"}, headers[nvDinoV2InputAssetReferencesHeader])
+	require.Equal(t, []string{"asset-123"}, headers[nvDinoV2FunctionAssetIDsHeader])
+
+	// Ensure the runtime overrides were removed so later generic override application
+	// doesn't re-add them with canonicalized header keys.
+	_, exists := info.RuntimeHeadersOverride["nvcf-input-asset-references"]
+	require.False(t, exists)
+	_, exists = info.RuntimeHeadersOverride["nvcf-function-asset-ids"]
+	require.False(t, exists)
+}
+
 func TestNvidiaConvertEmbeddingRequestForTextModelPassThrough(t *testing.T) {
 	t.Parallel()
 

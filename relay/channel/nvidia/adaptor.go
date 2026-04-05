@@ -53,6 +53,29 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	if req.Get("Accept") == "" {
 		req.Set("Accept", "application/json")
 	}
+
+	// NVCF header names are case-insensitive per RFC, but the NVIDIA examples (and some
+	// gateways) expect the exact uppercase header names. When we rely on runtime header
+	// overrides, Go's Header.Set canonicalizes keys (e.g. "Nvcf-Input-Asset-References"),
+	// which can cause upstreams to miss the header. For nv-dinov2 large-image requests,
+	// apply these headers directly using the exact keys, and remove them from runtime
+	// overrides to avoid re-applying with canonicalized keys later.
+	if info != nil && IsNVDinoV2Model(info.UpstreamModelName) && info.UseRuntimeHeadersOverride && len(info.RuntimeHeadersOverride) > 0 {
+		if assetRef, ok := info.RuntimeHeadersOverride[strings.ToLower(nvDinoV2InputAssetReferencesHeader)]; ok {
+			value := strings.TrimSpace(fmt.Sprintf("%v", assetRef))
+			if value != "" {
+				(*req)[nvDinoV2InputAssetReferencesHeader] = []string{value}
+			}
+			delete(info.RuntimeHeadersOverride, strings.ToLower(nvDinoV2InputAssetReferencesHeader))
+		}
+		if assetIDs, ok := info.RuntimeHeadersOverride[strings.ToLower(nvDinoV2FunctionAssetIDsHeader)]; ok {
+			value := strings.TrimSpace(fmt.Sprintf("%v", assetIDs))
+			if value != "" {
+				(*req)[nvDinoV2FunctionAssetIDsHeader] = []string{value}
+			}
+			delete(info.RuntimeHeadersOverride, strings.ToLower(nvDinoV2FunctionAssetIDsHeader))
+		}
+	}
 	return nil
 }
 
