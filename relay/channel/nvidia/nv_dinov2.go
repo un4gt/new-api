@@ -204,6 +204,9 @@ func normalizeNVDinoV2ImagePayload(base64Data string, cachedData *types.CachedFi
 	}
 
 	detectedMimeType := detectMimeTypeFromImageFormat(cachedData.ImageFormat)
+	if detectedMimeType == "" {
+		detectedMimeType = detectMimeTypeFromBinary(binaryData)
+	}
 	if detectedMimeType != "" {
 		if detectedMimeType == "image/jpeg" || detectedMimeType == "image/png" {
 			return base64Data, detectedMimeType, int64(len(binaryData)), nil
@@ -237,6 +240,24 @@ func detectMimeTypeFromImageFormat(format string) string {
 		return "image/bmp"
 	case "tiff":
 		return "image/tiff"
+	default:
+		return ""
+	}
+}
+
+func detectMimeTypeFromBinary(binaryData []byte) string {
+	if len(binaryData) == 0 {
+		return ""
+	}
+	mimeType := strings.TrimSpace(strings.ToLower(http.DetectContentType(binaryData)))
+	if idx := strings.Index(mimeType, ";"); idx != -1 {
+		mimeType = strings.TrimSpace(mimeType[:idx])
+	}
+	switch mimeType {
+	case "image/jpg":
+		return "image/jpeg"
+	case "image/jpeg", "image/png", "image/webp", "image/gif", "image/bmp", "image/tiff":
+		return mimeType
 	default:
 		return ""
 	}

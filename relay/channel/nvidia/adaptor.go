@@ -46,6 +46,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
+	// NVIDIA embeddings endpoints expect JSON payloads, even when incoming
+	// client requests are multipart/form-data.
+	req.Set("Content-Type", "application/json")
 	req.Set("Authorization", fmt.Sprintf("Bearer %s", info.ApiKey))
 	if req.Get("Accept") == "" {
 		req.Set("Accept", "application/json")

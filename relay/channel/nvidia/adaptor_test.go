@@ -341,6 +341,29 @@ func TestNvidiaSetupRequestHeader(t *testing.T) {
 	require.Equal(t, "application/json", headers.Get("Accept"))
 }
 
+func TestNvidiaSetupRequestHeaderMultipartForcesJSON(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
+	ctx.Request.Header.Set("Content-Type", "multipart/form-data; boundary=abc123")
+
+	headers := http.Header{}
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "nvidia-key",
+		},
+	}
+	adaptor := &Adaptor{}
+	err := adaptor.SetupRequestHeader(ctx, &headers, info)
+	require.NoError(t, err)
+	require.Equal(t, "Bearer nvidia-key", headers.Get("Authorization"))
+	require.Equal(t, "application/json", headers.Get("Content-Type"))
+	require.Equal(t, "application/json", headers.Get("Accept"))
+}
+
 func TestNvidiaConvertEmbeddingRequestForTextModelPassThrough(t *testing.T) {
 	t.Parallel()
 
@@ -449,6 +472,33 @@ func TestNvidiaNormalizeImageMimeType(t *testing.T) {
 	require.Equal(t, "image/png", normalizeImageMimeType("image/png"))
 	require.Equal(t, nvDinoV2DefaultImageMime, normalizeImageMimeType("image/webp"))
 	require.Equal(t, "", normalizeImageMimeType(""))
+}
+
+func TestNormalizeNVDinoV2ImagePayloadDetectsMimeFromBinary(t *testing.T) {
+	t.Parallel()
+
+	pngBytes := []byte{
+		0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+		0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+		0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+		0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41,
+		0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+		0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00,
+		0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+		0x42, 0x60, 0x82,
+	}
+	b64 := base64.StdEncoding.EncodeToString(pngBytes)
+
+	cached := &types.CachedFileData{
+		MimeType: "image/jpeg",
+		Size:     int64(len(pngBytes)),
+	}
+	gotB64, gotMime, gotSize, err := normalizeNVDinoV2ImagePayload(b64, cached)
+	require.NoError(t, err)
+	require.Equal(t, b64, gotB64)
+	require.Equal(t, "image/png", gotMime)
+	require.Equal(t, int64(len(pngBytes)), gotSize)
 }
 
 func TestNvidiaConvertEmbeddingRequestLargeImageAddsRuntimeHeaders(t *testing.T) {
