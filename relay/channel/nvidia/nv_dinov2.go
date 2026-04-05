@@ -22,8 +22,9 @@ import (
 )
 
 const (
-	nvDinoV2InferURL                         = "https://ai.api.nvidia.com/v1/cv/nvidia/nv-dinov2"
-	nvDinoV2InlineImageMaxBytes        int64 = 200 * 1024
+	nvDinoV2InferURL = "https://ai.api.nvidia.com/v1/cv/nvidia/nv-dinov2"
+	// NVIDIA official examples branch by base64 string length (< 200_000 inline; otherwise assets API).
+	nvDinoV2InlineImageMaxBase64Chars  int64 = 200_000
 	nvDinoV2DefaultImageMime                 = "image/jpeg"
 	nvDinoV2InputAssetReferencesHeader       = "NVCF-INPUT-ASSET-REFERENCES"
 	nvDinoV2FunctionAssetIDsHeader           = "NVCF-FUNCTION-ASSET-IDS"
@@ -98,15 +99,16 @@ func buildNVDinoV2RequestAndRuntimeHeadersImpl(c *gin.Context, info *relaycommon
 		return nil, nil, fmt.Errorf("failed to read image content: %w", err)
 	}
 
-	base64Data, mimeType, payloadSize, err := normalizeNVDinoV2ImagePayload(base64Data, cachedData)
+	base64Data, mimeType, _, err := normalizeNVDinoV2ImagePayload(base64Data, cachedData)
 	if err != nil {
 		return nil, nil, err
 	}
 	if mimeType == "" {
 		mimeType = nvDinoV2DefaultImageMime
 	}
+	base64Size := int64(len(base64Data))
 
-	if payloadSize < nvDinoV2InlineImageMaxBytes {
+	if base64Size < nvDinoV2InlineImageMaxBase64Chars {
 		payload := &nvDinoV2Request{
 			Messages: []nvDinoV2Message{
 				{
@@ -127,19 +129,10 @@ func buildNVDinoV2RequestAndRuntimeHeadersImpl(c *gin.Context, info *relaycommon
 		return nil, nil, err
 	}
 
-	// NVIDIA official snippets document that large images should be passed by asset_id
-	// and request headers must include NVCF-INPUT-ASSET-REFERENCES.
+	// NVIDIA official snippets document that large images should be uploaded as assets,
+	// then referenced only via NVCF headers; body keeps empty messages.
 	payload := &nvDinoV2Request{
-		Messages: []nvDinoV2Message{
-			{
-				Content: nvDinoV2Content{
-					Type: "image_url",
-					ImageURL: nvDinoV2ImageInput{
-						URL: fmt.Sprintf("data:%s;asset_id,%s", mimeType, assetID),
-					},
-				},
-			},
-		},
+		Messages: make([]nvDinoV2Message, 0),
 	}
 
 	runtimeHeaders := map[string]any{
