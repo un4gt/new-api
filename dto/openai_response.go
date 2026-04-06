@@ -237,6 +237,8 @@ type Usage struct {
 
 	// OpenRouter Params
 	Cost any `json:"cost,omitempty"`
+	// OpenRouter Rerank Params
+	SearchUnits int `json:"search_units,omitempty"`
 }
 
 type OpenAIVideoResponse struct {

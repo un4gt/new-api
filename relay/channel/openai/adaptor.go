@@ -359,6 +359,50 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {
+	if a.ChannelType == constant.ChannelTypeOpenRouter {
+		// OpenRouter rerank API expects documents as string[] and only accepts a small set of fields.
+		// Reference: https://openrouter.ai/api/v1/rerank
+		documents := make([]string, 0, len(request.Documents))
+		for _, document := range request.Documents {
+			switch v := document.(type) {
+			case string:
+				documents = append(documents, v)
+			case map[string]any:
+				// Some clients may send documents as {"text": "..."}.
+				if text, ok := v["text"]; ok {
+					documents = append(documents, fmt.Sprintf("%v", text))
+				} else {
+					documents = append(documents, fmt.Sprintf("%v", v))
+				}
+			default:
+				documents = append(documents, fmt.Sprintf("%v", v))
+			}
+		}
+
+		topN := request.TopN
+		if topN != nil && *topN <= 0 {
+			defaultTopN := 1
+			topN = &defaultTopN
+		}
+
+		return struct {
+			Model           string   `json:"model"`
+			Query           string   `json:"query"`
+			Documents       []string `json:"documents"`
+			TopN            *int     `json:"top_n,omitempty"`
+			ReturnDocuments *bool    `json:"return_documents,omitempty"`
+			MaxTokensPerDoc *int     `json:"max_tokens_per_doc,omitempty"`
+			Priority        *int     `json:"priority,omitempty"`
+		}{
+			Model:           request.Model,
+			Query:           request.Query,
+			Documents:       documents,
+			TopN:            topN,
+			ReturnDocuments: request.ReturnDocuments,
+			MaxTokensPerDoc: request.MaxTokensPerDoc,
+			Priority:        request.Priority,
+		}, nil
+	}
 	return request, nil
 }
 

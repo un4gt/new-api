@@ -16,6 +16,10 @@ type RerankRequest struct {
 	ReturnDocuments *bool  `json:"return_documents,omitempty"`
 	MaxChunkPerDoc  *int   `json:"max_chunk_per_doc,omitempty"`
 	OverLapTokens   *int   `json:"overlap_tokens,omitempty"`
+
+	// Provider optional fields (e.g. Cohere v2/rerank).
+	MaxTokensPerDoc *int `json:"max_tokens_per_doc,omitempty"`
+	Priority        *int `json:"priority,omitempty"`
 }
 
 func (r *RerankRequest) IsStream(c *gin.Context) bool {

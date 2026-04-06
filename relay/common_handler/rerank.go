@@ -66,7 +66,40 @@ func RerankHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
-		jinaResp.Usage.PromptTokens = jinaResp.Usage.TotalTokens
+		// Some upstreams (including OpenRouter rerank) may omit `document` fields even if the client
+		// requested `return_documents`. For API compatibility, we can always reconstruct documents
+		// from the original request payload by index when the upstream doesn't return them.
+		if info.ReturnDocuments && len(info.Documents) > 0 {
+			for i := range jinaResp.Results {
+				if jinaResp.Results[i].Index < 0 || jinaResp.Results[i].Index >= len(info.Documents) {
+					continue
+				}
+				if jinaResp.Results[i].Document == nil {
+					jinaResp.Results[i].Document = info.Documents[jinaResp.Results[i].Index]
+					continue
+				}
+				if doc, ok := jinaResp.Results[i].Document.(string); ok && doc == "" {
+					jinaResp.Results[i].Document = info.Documents[jinaResp.Results[i].Index]
+				}
+			}
+		}
+		// Some upstreams (e.g. OpenRouter rerank) return cost/search_units without token usage.
+		// To ensure billing works, fall back to estimated prompt tokens when token usage is absent.
+		if jinaResp.Usage.TotalTokens == 0 && jinaResp.Usage.PromptTokens == 0 && jinaResp.Usage.CompletionTokens == 0 {
+			estimate := info.GetEstimatePromptTokens()
+			if estimate <= 0 {
+				estimate = 1
+			}
+			jinaResp.Usage.PromptTokens = estimate
+			jinaResp.Usage.TotalTokens = estimate
+		} else {
+			if jinaResp.Usage.TotalTokens == 0 {
+				jinaResp.Usage.TotalTokens = jinaResp.Usage.PromptTokens + jinaResp.Usage.CompletionTokens
+			}
+			if jinaResp.Usage.PromptTokens == 0 && jinaResp.Usage.TotalTokens > 0 {
+				jinaResp.Usage.PromptTokens = jinaResp.Usage.TotalTokens
+			}
+		}
 	}
 
 	c.Writer.Header().Set("Content-Type", "application/json")
