@@ -81,6 +81,7 @@ func detectTestRequestPath(channel *model.Channel, testModel string, endpointTyp
 		strings.HasPrefix(testModel, "m3e") ||
 		strings.Contains(testModel, "bge-") ||
 		strings.Contains(testModel, "embed") ||
+		strings.Contains(strings.ToLower(testModel), "clip") ||
 		(channel != nil && channel.Type == constant.ChannelTypeMokaAI) {
 		requestPath = "/v1/embeddings"
 	}

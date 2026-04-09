@@ -164,6 +164,11 @@ export const CHANNEL_OPTIONS = [
     color: 'green',
     label: 'Nvidia',
   },
+  {
+    value: 60,
+    color: 'blue',
+    label: 'Elastic Inference Endpoints',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.
