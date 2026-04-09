@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from typing import Any, Dict, Optional, Tuple
 
 try:
     import requests  # type: ignore
@@ -52,13 +53,8 @@ EMBEDDING_MODELS = [
 ]
 
 
-def _post(path: str, payload: dict):
-    resp = requests.post(
-        url=f"{BASE_URL}{path}",
-        headers=HEADERS,
-        data=json.dumps(payload),
-        timeout=120,
-    )
+def _post(path: str, payload: Dict[str, Any]) -> Tuple[int, Optional[Dict[str, Any]], str]:
+    resp = requests.post(url=f"{BASE_URL}{path}", headers=HEADERS, json=payload, timeout=120)
     text = resp.text or ""
     try:
         data = resp.json()
@@ -71,6 +67,25 @@ def _is_error(status: int, data) -> bool:
     if status != 200:
         return True
     return isinstance(data, dict) and "error" in data
+
+
+def _get_openai_error(data: Optional[Dict[str, Any]]) -> Tuple[str, str, str]:
+    if not isinstance(data, dict):
+        return "", "", ""
+    err = data.get("error")
+    if not isinstance(err, dict):
+        return "", "", ""
+    msg = err.get("message")
+    typ = err.get("type")
+    code = err.get("code")
+    return str(msg or ""), str(typ or ""), str(code or "")
+
+
+def _is_elastic_base_url_empty(status: int, data: Optional[Dict[str, Any]]) -> bool:
+    if status != 500:
+        return False
+    msg, _, _ = _get_openai_error(data)
+    return "base url is empty" in (msg or "")
 
 
 def _must(cond: bool, msg: str) -> None:
@@ -105,19 +120,55 @@ def _preview(text: str, limit: int = 240) -> str:
     return s[:limit] + f"...(truncated {len(s)} chars)"
 
 
+def _die_elastic_base_url_empty(model: str, status: int, data: Optional[Dict[str, Any]], text: str) -> None:
+    msg, typ, code = _get_openai_error(data)
+    print("\n[CONFIG ERROR] Elastic Inference Endpoints channel base_url is empty.")
+    print(f"  - model: {model}")
+    print(f"  - status: {status}")
+    if msg:
+        print(f"  - error.message: {msg}")
+    if typ or code:
+        print(f"  - error.type/code: {typ or '-'} / {code or '-'}")
+    if text:
+        print(f"  - raw: {_preview(text)}")
+    print("\nFix:")
+    print("  1) In new-api dashboard -> Channels -> Elastic Inference Endpoints, set Base URL")
+    print("     Example: https://<cluster-id>.<region>.<provider>.cloud.es.io")
+    print("  2) Make sure the channel is enabled and in the token's group routing.")
+    print("  3) If you have multiple matching channels, disable the misconfigured ones.")
+    print("     Admin-only tip: force a channel id via token suffix:")
+    print("       API_KEY=<token>-<channel_id>  (new-api supports selecting specific_channel_id)")
+    raise SystemExit(2)
+
+
 def main() -> None:
     failures = []
+    saw_success = False
+
+    # Quick probe: if the EIS channel is selected but missing base_url, fail fast with guidance.
+    try:
+        probe_model = "google-gemini-embedding-001"
+        status, data, text = _post("/embeddings", {"model": probe_model, "input": "probe"})
+        if _is_elastic_base_url_empty(status, data):
+            _die_elastic_base_url_empty(probe_model, status, data, text)
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(f"Cannot reach gateway at {BASE_URL}: {e}") from e
 
     for model in EMBEDDING_MODELS:
         try:
             # Single input
             status, data, text = _post("/embeddings", {"model": model, "input": "hello elastic"})
+            if _is_elastic_base_url_empty(status, data):
+                _die_elastic_base_url_empty(model, status, data, text)
             _must(not _is_error(status, data), f"{model} embedding failed: {status} {_preview(text)}")
             dim = _parse_embeddings(data, model, expected_items=1)
             print(f"[OK] embeddings(text) model={model} dim={dim}")
+            saw_success = True
 
             # Batch input
             status, data, text = _post("/embeddings", {"model": model, "input": ["text1", "text2", "text3"]})
+            if _is_elastic_base_url_empty(status, data):
+                _die_elastic_base_url_empty(model, status, data, text)
             _must(not _is_error(status, data), f"{model} batch embedding failed: {status} {_preview(text)}")
             dim = _parse_embeddings(data, model, expected_items=3)
             print(f"[OK] embeddings(batch) model={model} dim={dim} items=3")
@@ -125,6 +176,8 @@ def main() -> None:
             # Dimensions is not supported by EIS channel in new-api; it should be ignored (not forwarded upstream).
             if model == "google-gemini-embedding-001":
                 status, data, text = _post("/embeddings", {"model": model, "input": "dims ignored", "dimensions": 8})
+                if _is_elastic_base_url_empty(status, data):
+                    _die_elastic_base_url_empty(model, status, data, text)
                 _must(not _is_error(status, data), f"{model} dimensions test failed: {status} {_preview(text)}")
                 dim = _parse_embeddings(data, model, expected_items=1)
                 print(f"[OK] embeddings(dimensions-ignored) model={model} dim={dim}")
@@ -132,12 +185,13 @@ def main() -> None:
             failures.append(f"embeddings {model}: {e}")
 
     # Stable validation edge: missing input must be rejected by gateway.
-    try:
-        status, data, text = _post("/embeddings", {"model": EMBEDDING_MODELS[0]})
-        _must(_is_error(status, data), f"expected missing input to fail, got {status}: {_preview(text)}")
-        print("[OK] embeddings(edge) missing input rejected")
-    except Exception as e:
-        failures.append(f"embeddings(edge) missing input: {e}")
+    if saw_success:
+        try:
+            status, data, text = _post("/embeddings", {"model": EMBEDDING_MODELS[0]})
+            _must(_is_error(status, data), f"expected missing input to fail, got {status}: {_preview(text)}")
+            print("[OK] embeddings(edge) missing input rejected")
+        except Exception as e:
+            failures.append(f"embeddings(edge) missing input: {e}")
 
     if failures:
         print("\nFAILED:")
@@ -149,4 +203,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

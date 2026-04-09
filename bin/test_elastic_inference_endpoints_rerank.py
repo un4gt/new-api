@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+from typing import Any, Dict, Optional, Tuple
 
 try:
     import requests  # type: ignore
@@ -44,13 +45,8 @@ RERANK_MODELS = [
 ]
 
 
-def _post(path: str, payload: dict):
-    resp = requests.post(
-        url=f"{BASE_URL}{path}",
-        headers=HEADERS,
-        data=json.dumps(payload),
-        timeout=120,
-    )
+def _post(path: str, payload: Dict[str, Any]) -> Tuple[int, Optional[Dict[str, Any]], str]:
+    resp = requests.post(url=f"{BASE_URL}{path}", headers=HEADERS, json=payload, timeout=120)
     text = resp.text or ""
     try:
         data = resp.json()
@@ -63,6 +59,25 @@ def _is_error(status: int, data) -> bool:
     if status != 200:
         return True
     return isinstance(data, dict) and "error" in data
+
+
+def _get_openai_error(data: Optional[Dict[str, Any]]) -> Tuple[str, str, str]:
+    if not isinstance(data, dict):
+        return "", "", ""
+    err = data.get("error")
+    if not isinstance(err, dict):
+        return "", "", ""
+    msg = err.get("message")
+    typ = err.get("type")
+    code = err.get("code")
+    return str(msg or ""), str(typ or ""), str(code or "")
+
+
+def _is_elastic_base_url_empty(status: int, data: Optional[Dict[str, Any]]) -> bool:
+    if status != 500:
+        return False
+    msg, _, _ = _get_openai_error(data)
+    return "base url is empty" in (msg or "")
 
 
 def _must(cond: bool, msg: str) -> None:
@@ -96,8 +111,30 @@ def _parse_rerank_response(data, docs_len: int) -> None:
     _must(isinstance(usage.get("total_tokens"), int), "usage.total_tokens must be int")
 
 
+def _die_elastic_base_url_empty(model: str, status: int, data: Optional[Dict[str, Any]], text: str) -> None:
+    msg, typ, code = _get_openai_error(data)
+    print("\n[CONFIG ERROR] Elastic Inference Endpoints channel base_url is empty.")
+    print(f"  - model: {model}")
+    print(f"  - status: {status}")
+    if msg:
+        print(f"  - error.message: {msg}")
+    if typ or code:
+        print(f"  - error.type/code: {typ or '-'} / {code or '-'}")
+    if text:
+        print(f"  - raw: {_preview(text)}")
+    print("\nFix:")
+    print("  1) In new-api dashboard -> Channels -> Elastic Inference Endpoints, set Base URL")
+    print("     Example: https://<cluster-id>.<region>.<provider>.cloud.es.io")
+    print("  2) Make sure the channel is enabled and in the token's group routing.")
+    print("  3) If you have multiple matching channels, disable the misconfigured ones.")
+    print("     Admin-only tip: force a channel id via token suffix:")
+    print("       API_KEY=<token>-<channel_id>  (new-api supports selecting specific_channel_id)")
+    raise SystemExit(2)
+
+
 def main() -> None:
     failures = []
+    saw_success = False
 
     docs = [
         "Organic skincare for sensitive skin with aloe vera and chamomile.",
@@ -106,6 +143,15 @@ def main() -> None:
         "新一季化妆趋势：大胆颜色与创新技巧。",
     ]
     query = "Organic skincare products for sensitive skin"
+
+    # Quick probe: fail fast if EIS channel is selected but missing base_url.
+    try:
+        probe_model = "jina-reranker-v3"
+        status, data, text = _post("/rerank", {"model": probe_model, "query": "probe", "documents": ["a", "b"]})
+        if _is_elastic_base_url_empty(status, data):
+            _die_elastic_base_url_empty(probe_model, status, data, text)
+    except requests.exceptions.RequestException as e:
+        raise SystemExit(f"Cannot reach gateway at {BASE_URL}: {e}") from e
 
     for model in RERANK_MODELS:
         try:
@@ -118,9 +164,12 @@ def main() -> None:
                     "documents": docs,
                 },
             )
+            if _is_elastic_base_url_empty(status, data):
+                _die_elastic_base_url_empty(model, status, data, text)
             _must(not _is_error(status, data), f"{model} rerank failed: {status} {_preview(text)}")
             _parse_rerank_response(data, docs_len=len(docs))
             print(f"[OK] rerank model={model} results={len(data.get('results') or [])}")
+            saw_success = True
 
             # Print top 3
             for item in (data.get("results") or [])[:3]:
@@ -131,12 +180,13 @@ def main() -> None:
             failures.append(f"rerank {model}: {e}")
 
     # Stable validation edge: missing documents should be rejected by gateway.
-    try:
-        status, data, text = _post("/rerank", {"model": RERANK_MODELS[0], "query": query})
-        _must(_is_error(status, data), f"expected missing documents to fail, got {status}: {_preview(text)}")
-        print("[OK] rerank(edge) missing documents rejected")
-    except Exception as e:
-        failures.append(f"rerank(edge) missing documents: {e}")
+    if saw_success:
+        try:
+            status, data, text = _post("/rerank", {"model": RERANK_MODELS[0], "query": query})
+            _must(_is_error(status, data), f"expected missing documents to fail, got {status}: {_preview(text)}")
+            print("[OK] rerank(edge) missing documents rejected")
+        except Exception as e:
+            failures.append(f"rerank(edge) missing documents: {e}")
 
     if failures:
         print("\nFAILED:")
@@ -148,4 +198,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
