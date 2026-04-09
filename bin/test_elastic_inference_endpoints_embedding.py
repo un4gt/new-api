@@ -147,7 +147,9 @@ def main() -> None:
 
     # Quick probe: if the EIS channel is selected but missing base_url, fail fast with guidance.
     try:
-        probe_model = "google-gemini-embedding-001"
+        # Pick a model name that is intended to be unique to the Elastic EIS channel,
+        # so we don't accidentally pass the probe via another provider channel.
+        probe_model = "openai-text-embedding-3-small"
         status, data, text = _post("/embeddings", {"model": probe_model, "input": "probe"})
         if _is_elastic_base_url_empty(status, data):
             _die_elastic_base_url_empty(probe_model, status, data, text)
