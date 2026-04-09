@@ -15,7 +15,6 @@ Notes:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from typing import Any, Dict, Optional, Tuple
@@ -44,7 +43,6 @@ HEADERS = {
 EMBEDDING_MODELS = [
     "jina-clip-v2",
     "jina-embeddings-v3",
-    "jina-embeddings-v5",
     "jina-embeddings-v5-text-nano",
     "jina-embeddings-v5-text-small",
     "google-gemini-embedding-001",
@@ -86,6 +84,20 @@ def _is_elastic_base_url_empty(status: int, data: Optional[Dict[str, Any]]) -> b
         return False
     msg, _, _ = _get_openai_error(data)
     return "base url is empty" in (msg or "")
+
+
+def _is_upstream_not_found(status: int, data: Optional[Dict[str, Any]]) -> bool:
+    if status != 404:
+        return False
+    _, typ, code = _get_openai_error(data)
+    return typ == "bad_response_status_code" or code == "bad_response_status_code"
+
+
+def _is_invalid_request(status: int, data: Optional[Dict[str, Any]]) -> bool:
+    if status != 400:
+        return False
+    _, typ, code = _get_openai_error(data)
+    return typ == "invalid_request" or code == "invalid_request"
 
 
 def _must(cond: bool, msg: str) -> None:
@@ -162,6 +174,10 @@ def main() -> None:
             status, data, text = _post("/embeddings", {"model": model, "input": "hello elastic"})
             if _is_elastic_base_url_empty(status, data):
                 _die_elastic_base_url_empty(model, status, data, text)
+            _must(
+                not _is_upstream_not_found(status, data),
+                f"{model} embedding failed: upstream 404 (inference endpoint not found): {_preview(text)}",
+            )
             _must(not _is_error(status, data), f"{model} embedding failed: {status} {_preview(text)}")
             dim = _parse_embeddings(data, model, expected_items=1)
             print(f"[OK] embeddings(text) model={model} dim={dim}")
@@ -171,15 +187,30 @@ def main() -> None:
             status, data, text = _post("/embeddings", {"model": model, "input": ["text1", "text2", "text3"]})
             if _is_elastic_base_url_empty(status, data):
                 _die_elastic_base_url_empty(model, status, data, text)
-            _must(not _is_error(status, data), f"{model} batch embedding failed: {status} {_preview(text)}")
-            dim = _parse_embeddings(data, model, expected_items=3)
-            print(f"[OK] embeddings(batch) model={model} dim={dim} items=3")
+            if model == "jina-clip-v2":
+                _must(
+                    _is_invalid_request(status, data),
+                    f"{model} batch should be rejected by gateway, got {status}: {_preview(text)}",
+                )
+                print(f"[OK] embeddings(batch) model={model} rejected (batch not supported)")
+            else:
+                _must(
+                    not _is_upstream_not_found(status, data),
+                    f"{model} batch embedding failed: upstream 404 (endpoint/batch not supported): {_preview(text)}",
+                )
+                _must(not _is_error(status, data), f"{model} batch embedding failed: {status} {_preview(text)}")
+                dim = _parse_embeddings(data, model, expected_items=3)
+                print(f"[OK] embeddings(batch) model={model} dim={dim} items=3")
 
             # Dimensions is not supported by EIS channel in new-api; it should be ignored (not forwarded upstream).
             if model == "google-gemini-embedding-001":
                 status, data, text = _post("/embeddings", {"model": model, "input": "dims ignored", "dimensions": 8})
                 if _is_elastic_base_url_empty(status, data):
                     _die_elastic_base_url_empty(model, status, data, text)
+                _must(
+                    not _is_upstream_not_found(status, data),
+                    f"{model} dimensions test failed: upstream 404: {_preview(text)}",
+                )
                 _must(not _is_error(status, data), f"{model} dimensions test failed: {status} {_preview(text)}")
                 dim = _parse_embeddings(data, model, expected_items=1)
                 print(f"[OK] embeddings(dimensions-ignored) model={model} dim={dim}")

@@ -15,7 +15,6 @@ Notes:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from typing import Any, Dict, Optional, Tuple
@@ -78,6 +77,13 @@ def _is_elastic_base_url_empty(status: int, data: Optional[Dict[str, Any]]) -> b
         return False
     msg, _, _ = _get_openai_error(data)
     return "base url is empty" in (msg or "")
+
+
+def _is_upstream_not_found(status: int, data: Optional[Dict[str, Any]]) -> bool:
+    if status != 404:
+        return False
+    _, typ, code = _get_openai_error(data)
+    return typ == "bad_response_status_code" or code == "bad_response_status_code"
 
 
 def _must(cond: bool, msg: str) -> None:
@@ -166,6 +172,10 @@ def main() -> None:
             )
             if _is_elastic_base_url_empty(status, data):
                 _die_elastic_base_url_empty(model, status, data, text)
+            _must(
+                not _is_upstream_not_found(status, data),
+                f"{model} rerank failed: upstream 404 (inference endpoint not found): {_preview(text)}",
+            )
             _must(not _is_error(status, data), f"{model} rerank failed: {status} {_preview(text)}")
             _parse_rerank_response(data, docs_len=len(docs))
             print(f"[OK] rerank model={model} results={len(data.get('results') or [])}")

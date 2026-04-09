@@ -68,9 +68,8 @@ curl -X POST 'http://localhost:3000/v1/rerank' \
 
 ### Embedding models
 
-- `jina-clip-v2`
+- `jina-clip-v2`（仅支持单条 input；batch input 将返回 400 `invalid_request`）
 - `jina-embeddings-v3`
-- `jina-embeddings-v5`
 - `jina-embeddings-v5-text-nano`
 - `jina-embeddings-v5-text-small`
 - `google-gemini-embedding-001`

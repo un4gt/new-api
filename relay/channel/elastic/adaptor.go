@@ -126,7 +126,37 @@ func parseEmbeddingInput(input any) (any, error) {
 	}
 }
 
-func (a *Adaptor) ConvertEmbeddingRequest(_ *gin.Context, _ *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
+func (a *Adaptor) ConvertEmbeddingRequest(_ *gin.Context, info *relaycommon.RelayInfo, request dto.EmbeddingRequest) (any, error) {
+	modelName := strings.TrimSpace(info.UpstreamModelName)
+	if modelName == "" {
+		modelName = strings.TrimSpace(request.Model)
+	}
+	// Elastic hosted inference model names are prefixed with "." in the URL; accept both forms here.
+	modelName = strings.TrimPrefix(modelName, ".")
+
+	// NOTE: For Elastic Inference Endpoints, jina-clip-v2 appears to only support single input in practice.
+	// If clients send OpenAI-style batch inputs, reject early to avoid upstream 404 and provide a clearer error.
+	if strings.EqualFold(modelName, "jina-clip-v2") {
+		switch v := request.Input.(type) {
+		case []any:
+			if len(v) > 1 {
+				return nil, types.NewOpenAIError(
+					fmt.Errorf("jina-clip-v2 does not support batch input on elastic inference endpoints; provide a single string input"),
+					types.ErrorCodeInvalidRequest,
+					http.StatusBadRequest,
+					types.ErrOptionWithSkipRetry(),
+				)
+			}
+			// Compatibility: some clients (and the admin channel test) send input as a single-element array.
+			// Unwrap it to a plain string to match upstream expectations.
+			if len(v) == 1 {
+				if s, ok := v[0].(string); ok {
+					request.Input = s
+				}
+			}
+		}
+	}
+
 	input, err := parseEmbeddingInput(request.Input)
 	if err != nil {
 		return nil, err
