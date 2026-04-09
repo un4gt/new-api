@@ -70,6 +70,7 @@ curl -X POST 'http://localhost:3000/v1/rerank' \
 
 - `jina-clip-v2`
 - `jina-embeddings-v3`
+- `jina-embeddings-v5`
 - `jina-embeddings-v5-text-nano`
 - `jina-embeddings-v5-text-small`
 - `google-gemini-embedding-001`
@@ -82,4 +83,3 @@ curl -X POST 'http://localhost:3000/v1/rerank' \
 - `jina-reranker-v3`
 
 说明：不在清单中的 `model` 也允许作为自定义 inference endpoint id 使用（不会自动补 `.`）。
-

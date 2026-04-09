@@ -4,6 +4,7 @@ var ModelList = []string{
 	// Embedding models
 	"jina-clip-v2",
 	"jina-embeddings-v3",
+	"jina-embeddings-v5",
 	"jina-embeddings-v5-text-nano",
 	"jina-embeddings-v5-text-small",
 	"google-gemini-embedding-001",
