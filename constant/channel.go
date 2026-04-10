@@ -57,6 +57,7 @@ const (
 	ChannelTypeMoark                     = 58
 	ChannelTypeNvidia                    = 59
 	ChannelTypeElasticInferenceEndpoints = 60
+	ChannelTypeZeroEntropy               = 61
 	ChannelTypeDummy                     // this one is only for count, do not add any channel after this
 
 )
@@ -123,6 +124,7 @@ var ChannelBaseURLs = []string{
 	"https://ai.gitee.com",                      //58
 	"https://integrate.api.nvidia.com",          //59
 	"",                                          //60
+	"https://api.zeroentropy.dev",               //61
 }
 
 var ChannelTypeNames = map[int]string{
@@ -182,6 +184,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeMoark:                     "Moark",
 	ChannelTypeNvidia:                    "Nvidia",
 	ChannelTypeElasticInferenceEndpoints: "ElasticInferenceEndpoints",
+	ChannelTypeZeroEntropy:               "ZeroEntropy",
 }
 
 func GetChannelTypeName(channelType int) string {

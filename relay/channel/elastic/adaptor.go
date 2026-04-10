@@ -66,6 +66,13 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
 
+	// Elastic may reject requests when Accept header exists but is empty.
+	// Our shared SetupApiRequestHeader can set an empty Accept if the client did not provide one.
+	// Default to application/json for EIS embeddings/rerank.
+	if strings.TrimSpace(req.Get("Accept")) == "" {
+		req.Set("Accept", "application/json")
+	}
+
 	apiKey := strings.TrimSpace(info.ApiKey)
 	if apiKey == "" {
 		return errors.New("api key is empty")

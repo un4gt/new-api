@@ -249,6 +249,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := EnsureDefaultVendors(); err != nil {
+		common.SysLog(fmt.Sprintf("Warning: failed to seed default vendors: %v", err))
+	}
 	if err := DB.AutoMigrate(&SubscriptionPlan{}); err != nil {
 		return err
 	}

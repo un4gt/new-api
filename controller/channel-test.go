@@ -73,7 +73,7 @@ func detectTestRequestPath(channel *model.Channel, testModel string, endpointTyp
 		}
 	}
 
-	if strings.Contains(strings.ToLower(testModel), "rerank") {
+	if strings.Contains(strings.ToLower(testModel), "rerank") || strings.HasPrefix(strings.ToLower(testModel), "zerank") {
 		requestPath = "/v1/rerank"
 	}
 
@@ -781,7 +781,7 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 		}
 	}
 
-	if strings.Contains(strings.ToLower(model), "rerank") {
+	if strings.Contains(strings.ToLower(model), "rerank") || strings.HasPrefix(strings.ToLower(model), "zerank") {
 		return &dto.RerankRequest{
 			Model:     model,
 			Query:     "What is Deep Learning?",

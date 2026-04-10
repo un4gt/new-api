@@ -169,6 +169,11 @@ export const CHANNEL_OPTIONS = [
     color: 'blue',
     label: 'Elastic Inference Endpoints',
   },
+  {
+    value: 61,
+    color: 'blue',
+    label: 'ZeroEntropy',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.

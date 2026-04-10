@@ -30,6 +30,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/replicate"
 	"github.com/QuantumNous/new-api/relay/channel/siliconflow"
 	"github.com/QuantumNous/new-api/relay/channel/submodel"
+	"github.com/QuantumNous/new-api/relay/channel/zeroentropy"
 	taskali "github.com/QuantumNous/new-api/relay/channel/task/ali"
 	taskdoubao "github.com/QuantumNous/new-api/relay/channel/task/doubao"
 	taskGemini "github.com/QuantumNous/new-api/relay/channel/task/gemini"
@@ -120,6 +121,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &nvidia.Adaptor{}
 	case constant.APITypeElasticInferenceEndpoints:
 		return &elastic.Adaptor{}
+	case constant.APITypeZeroEntropy:
+		return &zeroentropy.Adaptor{}
 	}
 	return nil
 }

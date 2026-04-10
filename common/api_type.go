@@ -73,6 +73,8 @@ func ChannelType2APIType(channelType int) (int, bool) {
 		apiType = constant.APITypeNvidia
 	case constant.ChannelTypeElasticInferenceEndpoints:
 		apiType = constant.APITypeElasticInferenceEndpoints
+	case constant.ChannelTypeZeroEntropy:
+		apiType = constant.APITypeZeroEntropy
 	}
 	if apiType == -1 {
 		return constant.APITypeOpenAI, false

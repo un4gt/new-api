@@ -2,12 +2,14 @@ package elastic
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
@@ -60,6 +62,58 @@ func TestElasticAdaptorConvertEmbeddingRequestAllowsJinaClipV2Single(t *testing.
 	require.True(t, ok)
 	require.Equal(t, "hello", converted.Input)
 	require.Equal(t, "ingest", converted.InputType)
+}
+
+func TestElasticAdaptorSetupRequestHeaderDefaultsAcceptToJSON(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeEmbeddings,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "test-key",
+		},
+	}
+
+	headers := http.Header{}
+	err := adaptor.SetupRequestHeader(ctx, &headers, info)
+	require.NoError(t, err)
+
+	require.Equal(t, "application/json", headers.Get("Accept"))
+	require.Equal(t, "application/json", headers.Get("Content-Type"))
+	require.Equal(t, "ApiKey test-key", headers.Get("Authorization"))
+}
+
+func TestElasticAdaptorSetupRequestHeaderKeepsClientAccept(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/embeddings", nil)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+	ctx.Request.Header.Set("Accept", "application/json; charset=utf-8")
+
+	adaptor := &Adaptor{}
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeEmbeddings,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ApiKey: "test-key",
+		},
+	}
+
+	headers := http.Header{}
+	err := adaptor.SetupRequestHeader(ctx, &headers, info)
+	require.NoError(t, err)
+
+	require.Equal(t, "application/json; charset=utf-8", headers.Get("Accept"))
+	require.Equal(t, "ApiKey test-key", headers.Get("Authorization"))
 }
 
 func TestElasticAdaptorConvertEmbeddingRequestUnwrapsJinaClipV2SingleElementArray(t *testing.T) {

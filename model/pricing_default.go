@@ -41,6 +41,8 @@ var defaultVendorRules = map[string]string{
 	"nv-":      "NVIDIA",
 	"nemotron": "NVIDIA",
 	"dinov2":   "NVIDIA",
+	"zembed":   "ZeroEntropy",
+	"zerank":   "ZeroEntropy",
 }
 
 // 供应商默认图标映射
@@ -71,7 +73,9 @@ var defaultVendorIcons = map[string]string{
 	"微软":         "AzureAI",
 	"Microsoft":  "AzureAI",
 	"Azure":      "AzureAI",
+	"Elastic":    "Elastic",
 	"NVIDIA":     "SiNvidia",
+	"ZeroEntropy": "ZeroEntropy",
 }
 
 // Explicit metadata defaults for NVIDIA models to keep UI display consistent.

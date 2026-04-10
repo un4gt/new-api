@@ -380,6 +380,19 @@ export function getChannelIcon(channelType) {
       return <XAI size={iconSize} />;
     case 49: // Coze
       return <Coze size={iconSize} />;
+    case 61: // ZeroEntropy
+      return (
+        <img
+          src='https://dashboard.zeroentropy.dev/assets/images/logo-full.svg'
+          alt='ZeroEntropy'
+          style={{
+            height: iconSize,
+            maxWidth: iconSize * 6,
+            objectFit: 'contain',
+            verticalAlign: 'middle',
+          }}
+        />
+      );
     case 50: // 可灵 Kling
       return <Kling.Color size={iconSize} />;
     case 51: // 即梦 Jimeng
