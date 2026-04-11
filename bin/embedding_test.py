@@ -5,6 +5,7 @@ Embeddings E2E Test Script (new-api minimal build)
 This script tests:
   1) OpenAI-style embeddings endpoint:
      POST /v1/embeddings  (model=gemini-embedding-001, text only)
+     POST /v1/embeddings  (model=gemini-embedding-2-preview, text + optional extra_body.google.*)
 
   2) Vertex/Gemini embedContent endpoint (multimodal):
      POST /v1beta/models/gemini-embedding-2-preview:embedContent
@@ -389,6 +390,41 @@ def main() -> int:
         dim2, _ = _parse_openai_embeddings_response(data2 or {}, expected_model="gemini-embedding-001")
         _must(dim2 == dim, f"expected dim={dim}, got dim={dim2}")
 
+    def test_embedding_2_preview_text() -> None:
+        payload = {"model": "gemini-embedding-2-preview", "input": "hello embedding-2"}
+        status, data, text, _ = call("POST", "/v1/embeddings", payload)
+        _must(status == 200, f"/v1/embeddings (2-preview) failed: status={status}, body={_json_preview(text)}")
+        dim, items = _parse_openai_embeddings_response(data or {}, expected_model="gemini-embedding-2-preview", expected_items=1)
+        _must(dim > 0 and items == 1, "invalid embedding-2 /v1/embeddings response")
+
+    def test_embedding_2_preview_extra_body_multimodal() -> None:
+        # Non-standard extension: allow passing Gemini embedContent-style payloads
+        # via extra_body.google.requests while keeping /v1/embeddings compatibility.
+        png_b64 = _make_png_base64()
+        payload = {
+            "model": "gemini-embedding-2-preview",
+            "extra_body": {
+                "google": {
+                    "requests": [
+                        {"content": {"role": "user", "parts": [{"text": "hello extra_body"}]}},
+                        {
+                            "content": {
+                                "role": "user",
+                                "parts": [
+                                    {"text": "embed this image (extra_body)"},
+                                    {"inlineData": {"mimeType": "image/png", "data": png_b64}},
+                                ],
+                            }
+                        },
+                    ]
+                }
+            },
+        }
+        status, data, text, _ = call("POST", "/v1/embeddings", payload)
+        _must(status == 200, f"/v1/embeddings (2-preview extra_body) failed: status={status}, body={_json_preview(text)}")
+        dim, items = _parse_openai_embeddings_response(data or {}, expected_model="gemini-embedding-2-preview", expected_items=2)
+        _must(dim > 0 and items == 2, "invalid embedding-2 /v1/embeddings extra_body response")
+
     def _embedcontent_post(payload: Dict[str, Any]) -> Dict[str, Any]:
         status, data, text, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", payload)
         _must(status == 200, f"embedContent failed: status={status}, body={_json_preview(text)}")
@@ -537,13 +573,7 @@ def main() -> int:
         _must(len(vec) > 0, "empty embedding vector")
 
     def negative_tests() -> None:
-        # 1) gemini-embedding-2-preview must not work on /v1/embeddings
-        status, _, text, _ = call(
-            "POST", "/v1/embeddings", {"model": "gemini-embedding-2-preview", "input": "should fail"}
-        )
-        _must(status == 400, f"expected 400 for embedding-2 on /v1/embeddings, got {status}: {text}")
-
-        # 2) outputDimensionality > 3072 should be rejected by gateway
+        # 1) outputDimensionality > 3072 should be rejected by gateway
         payload2 = {
             "content": {"role": "user", "parts": [{"text": "dims too large"}]},
             "embedContentConfig": {"outputDimensionality": 3073},
@@ -551,7 +581,7 @@ def main() -> int:
         status2, _, text2, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", payload2)
         _must(status2 == 400, f"expected 400 for dims>3072, got {status2}: {text2}")
 
-        # 3) too many images (7) should fail fast without upstream dependency
+        # 2) too many images (7) should fail fast without upstream dependency
         too_many_images = {
             "content": {
                 "role": "user",
@@ -569,7 +599,7 @@ def main() -> int:
         status3, _, text3, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", too_many_images)
         _must(status3 == 400, f"expected 400 for too many images, got {status3}: {text3}")
 
-        # 4) PDF page count > 6 should fail fast (best-effort PDF page counter)
+        # 3) PDF page count > 6 should fail fast (best-effort PDF page counter)
         fake_pdf = b"%PDF-1.4\n<< /Type /Pages /Count 7 >>\n"
         fake_pdf_b64 = base64.b64encode(fake_pdf).decode("utf-8")
         too_many_pages = {
@@ -581,7 +611,7 @@ def main() -> int:
         status4, _, text4, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", too_many_pages)
         _must(status4 == 400, f"expected 400 for pdf pages > 6, got {status4}: {text4}")
 
-        # 5) gs:// is not supported for file_uri
+        # 4) gs:// is not supported for file_uri
         gs_uri = {
             "content": {
                 "role": "user",
@@ -596,6 +626,8 @@ def main() -> int:
     results.append(_run_test("POST /v1/embeddings (001 single)", test_embedding_001_single))
     results.append(_run_test("POST /v1/embeddings (001 batch)", test_embedding_001_batch))
     results.append(_run_test("POST /v1/embeddings (001 dimensions best-effort)", test_embedding_001_dimensions_best_effort))
+    results.append(_run_test("POST /v1/embeddings (2-preview text)", test_embedding_2_preview_text))
+    results.append(_run_test("POST /v1/embeddings (2-preview extra_body multimodal)", test_embedding_2_preview_extra_body_multimodal))
 
     results.append(_run_test("POST :embedContent (2 text)", test_embedcontent_2_text))
     results.append(_run_test("POST :embedContent (2 dimensions best-effort)", test_embedcontent_2_dimensions_best_effort))

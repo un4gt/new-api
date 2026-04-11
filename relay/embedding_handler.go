@@ -34,10 +34,10 @@ func EmbeddingHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
-	// gemini-embedding-2-preview is a multimodal embedding model and is not supported on the OpenAI-style /v1/embeddings endpoint.
-	if info.UpstreamModelName == "gemini-embedding-2-preview" {
+	// Validate embedding-2 output dimensionality early (Gemini uses outputDimensionality).
+	if info.UpstreamModelName == "gemini-embedding-2-preview" && request.Dimensions != nil && *request.Dimensions > embedding2MaxOutputDimensionality {
 		return types.NewErrorWithStatusCode(
-			fmt.Errorf("gemini-embedding-2-preview is not supported on /v1/embeddings; use /v1beta/models/gemini-embedding-2-preview:embedContent (single) or :batchEmbedContents (batch)"),
+			fmt.Errorf("dimensions must be between 1 and %d", embedding2MaxOutputDimensionality),
 			types.ErrorCodeInvalidRequest,
 			http.StatusBadRequest,
 			types.ErrOptionWithSkipRetry(),
@@ -55,6 +55,17 @@ func EmbeddingHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
 	relaycommon.AppendRequestConversionFromRequest(info, convertedRequest)
+
+	// For gemini-embedding-2-preview, apply the same multimodal validations/file handling
+	// to OpenAI-style /v1/embeddings requests (which we convert to :batchEmbedContents upstream).
+	if info.UpstreamModelName == "gemini-embedding-2-preview" {
+		if batchReq, ok := convertedRequest.(*dto.GeminiBatchEmbeddingRequest); ok {
+			_, newAPIError := validateAndNormalizeEmbedding2BatchEmbeddingRequest(c, batchReq)
+			if newAPIError != nil {
+				return newAPIError
+			}
+		}
+	}
 	jsonData, err := common.Marshal(convertedRequest)
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())

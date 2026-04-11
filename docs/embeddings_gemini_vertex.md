@@ -2,11 +2,12 @@
 
 本仓库的最小构建对外暴露三个与 Embedding 相关的入口：
 
-- `POST /v1/embeddings`：OpenAI embeddings 风格（**仅文本**，例如 `gemini-embedding-001`）。
+- `POST /v1/embeddings`：OpenAI embeddings 风格（默认 **仅文本**；对 `gemini-embedding-2-preview` 额外支持 `extra_body.google.*` 扩展传多模态/配置）。
 - `POST /v1beta/models/{model}:embedContent`：Gemini/Vertex `embedContent` 风格（**单条**，可多模态，例如 `gemini-embedding-2-preview`）。
 - `POST /v1beta/models/{model}:batchEmbedContents`：Gemini `batchEmbedContents` 风格（**批量**，文本/多模态均可）。
 
-> 注意：`gemini-embedding-2-preview` 是多模态 embedding 模型，**不支持**在 `POST /v1/embeddings` 使用；请改用 `:embedContent` 或 `:batchEmbedContents`（取决于你的上游支持情况）。
+> 注意：`POST /v1/embeddings` 的标准 `input` 仍只支持文本（string / string[]）。
+> 如果你需要在 `POST /v1/embeddings` 中传图片/音频/视频/PDF（仅 `gemini-embedding-2-preview`），可以使用本文档下方的 `extra_body.google.requests` 扩展（非 OpenAI 标准）。
 
 ## 1) `gemini-embedding-001`（OpenAI Style / 文本）
 
@@ -53,6 +54,49 @@ const resp = await fetch(`${BASE_URL}/v1/embeddings`, {
 
 console.log(resp.status, await resp.text());
 ```
+
+## 1.5) `gemini-embedding-2-preview`（/v1/embeddings + extra_body / 可选多模态）
+
+标准用法（纯文本）与 `gemini-embedding-001` 相同：
+
+```json
+{
+  "model": "gemini-embedding-2-preview",
+  "input": ["hello", "world"],
+  "dimensions": 1024
+}
+```
+
+如果你希望仍然走 `POST /v1/embeddings`，但同时传入 Gemini 的多模态 `content.parts[]` / `embedContentConfig` 等数据，可以使用扩展字段：
+
+```json
+{
+  "model": "gemini-embedding-2-preview",
+  "extra_body": {
+    "google": {
+      "requests": [
+        {
+          "content": { "role": "user", "parts": [{ "text": "The dog is cute" }] }
+        },
+        {
+          "content": {
+            "role": "user",
+            "parts": [
+              { "text": "embed this image" },
+              { "inlineData": { "mimeType": "image/png", "data": "<base64>" } }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+说明：
+
+- 当 `extra_body.google.requests` 存在时，网关会优先使用它来构造上游 `:batchEmbedContents` 请求；此时顶层 `input` 可以省略或仅作为兼容字段保留。
+- 对 `gemini-embedding-2-preview`，网关会复用与 `:embedContent` 相同的多模态校验逻辑，并在需要时将 `fileData.fileUri`（仅 `http(s)://`）下载并转换为 `inlineData` 后透传上游。
 
 ## 2) `gemini-embedding-2-preview`（Vertex embedContent / 多模态）
 
@@ -159,3 +203,5 @@ console.log(resp.status, await resp.text());
 - `POST /v1beta/models/{model}:batchEmbedContents`
 
 网关会透传 Gemini batch embedding 的请求/响应体；其中 `requests[].content.parts[]` 支持 `text`、`inlineData`/`inline_data`、`fileData`/`file_data` 等字段。
+
+对于 `gemini-embedding-2-preview`，网关会对每个 batch request 复用与 `:embedContent` 相同的多模态校验逻辑，并在需要时将 `fileData.fileUri`（仅 `http(s)://`）下载并转换为 `inlineData` 透传上游。

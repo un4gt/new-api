@@ -246,6 +246,17 @@ func GeminiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo) (newAPI
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
+	// For gemini-embedding-2-preview, apply the same multimodal validations/file handling
+	// to :batchEmbedContents as we do for :embedContent.
+	if isBatch && info.UpstreamModelName == "gemini-embedding-2-preview" {
+		if batchReq, ok := req.(*dto.GeminiBatchEmbeddingRequest); ok {
+			_, newAPIError := validateAndNormalizeEmbedding2BatchEmbeddingRequest(c, batchReq)
+			if newAPIError != nil {
+				return newAPIError
+			}
+		}
+	}
+
 	req.SetModelName("models/" + info.UpstreamModelName)
 
 	adaptor := GetAdaptor(info.ApiType)

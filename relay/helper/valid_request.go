@@ -170,7 +170,15 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 	}
 
 	if embeddingRequest.Input == nil {
-		return nil, fmt.Errorf("input is empty")
+		// OpenAI-style /v1/embeddings requires `input`, but we allow a provider-specific
+		// extension via `extra_body.google.*` to carry multimodal/content payloads while
+		// keeping the endpoint shape compatible for standard clients.
+		//
+		// This is primarily used for Gemini embedding models that support multimodal
+		// content (e.g. gemini-embedding-2-preview).
+		if len(embeddingRequest.ExtraBody) == 0 || !hasGeminiEmbeddingExtraBodyInput(embeddingRequest.ExtraBody) {
+			return nil, fmt.Errorf("input is empty")
+		}
 	}
 	if relayMode == relayconstant.RelayModeModerations && embeddingRequest.Model == "" {
 		embeddingRequest.Model = "omni-moderation-latest"
@@ -179,6 +187,29 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 		embeddingRequest.Model = c.Param("model")
 	}
 	return embeddingRequest, nil
+}
+
+func hasGeminiEmbeddingExtraBodyInput(extra json.RawMessage) bool {
+	type extraBody struct {
+		Google json.RawMessage `json:"google,omitempty"`
+	}
+	var outer extraBody
+	if err := common.Unmarshal(extra, &outer); err != nil {
+		return false
+	}
+	if len(outer.Google) == 0 {
+		return false
+	}
+	type googleBody struct {
+		Requests []json.RawMessage `json:"requests,omitempty"`
+		Content  json.RawMessage   `json:"content,omitempty"`
+		Contents []json.RawMessage `json:"contents,omitempty"`
+	}
+	var google googleBody
+	if err := common.Unmarshal(outer.Google, &google); err != nil {
+		return false
+	}
+	return len(google.Requests) > 0 || len(google.Contents) > 0 || len(google.Content) > 0
 }
 
 func patchEmbeddingRequestFromMultipart(c *gin.Context, embeddingRequest *dto.EmbeddingRequest) error {

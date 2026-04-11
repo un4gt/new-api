@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/QuantumNous/new-api/types"
@@ -32,6 +33,9 @@ type EmbeddingRequest struct {
 	TopP             *float64 `json:"top_p,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	// extra_body allows passing provider-specific request extensions while keeping
+	// the OpenAI-style /v1/embeddings shape compatible for standard clients.
+	ExtraBody json.RawMessage `json:"extra_body,omitempty"`
 }
 
 func (r *EmbeddingRequest) GetTokenCountMeta() *types.TokenCountMeta {
