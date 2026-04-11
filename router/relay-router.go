@@ -49,7 +49,7 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 	}
 
-	// Minimal build: expose Gemini-compatible embedContent endpoints only for embeddings use cases.
+	// Minimal build: expose Gemini-compatible embedding endpoints for embeddings use cases.
 	relayV1BetaRouter := router.Group("/v1beta")
 	relayV1BetaRouter.Use(middleware.RouteTag("relay"))
 	relayV1BetaRouter.Use(middleware.SystemPerformanceCheck())

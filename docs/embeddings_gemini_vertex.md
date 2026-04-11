@@ -1,11 +1,12 @@
 # Vertex / Gemini Embeddings（new-api）
 
-本仓库的最小构建对外暴露两个与 Embedding 相关的入口：
+本仓库的最小构建对外暴露三个与 Embedding 相关的入口：
 
 - `POST /v1/embeddings`：OpenAI embeddings 风格（**仅文本**，例如 `gemini-embedding-001`）。
-- `POST /v1beta/models/{model}:embedContent`：Vertex `embedContent` 风格（**多模态**，用于 `gemini-embedding-2-preview`）。
+- `POST /v1beta/models/{model}:embedContent`：Gemini/Vertex `embedContent` 风格（**单条**，可多模态，例如 `gemini-embedding-2-preview`）。
+- `POST /v1beta/models/{model}:batchEmbedContents`：Gemini `batchEmbedContents` 风格（**批量**，文本/多模态均可）。
 
-> 注意：`gemini-embedding-2-preview` 是多模态 embedding 模型，**不支持**在 `POST /v1/embeddings` 使用；请改用 `:embedContent`。
+> 注意：`gemini-embedding-2-preview` 是多模态 embedding 模型，**不支持**在 `POST /v1/embeddings` 使用；请改用 `:embedContent` 或 `:batchEmbedContents`（取决于你的上游支持情况）。
 
 ## 1) `gemini-embedding-001`（OpenAI Style / 文本）
 
@@ -150,3 +151,11 @@ const resp = await fetch(`${BASE_URL}/v1beta/models/gemini-embedding-2-preview:e
 
 console.log(resp.status, await resp.text());
 ```
+
+## 3) `:batchEmbedContents`（Gemini Batch / 批量）
+
+当你希望一次请求拿到多条 embedding（或需要批量多模态）时，可以使用：
+
+- `POST /v1beta/models/{model}:batchEmbedContents`
+
+网关会透传 Gemini batch embedding 的请求/响应体；其中 `requests[].content.parts[]` 支持 `text`、`inlineData`/`inline_data`、`fileData`/`file_data` 等字段。

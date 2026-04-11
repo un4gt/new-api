@@ -34,10 +34,10 @@ func EmbeddingHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 		return types.NewError(err, types.ErrorCodeChannelModelMappedError, types.ErrOptionWithSkipRetry())
 	}
 
-	// gemini-embedding-2-preview is a multimodal embedding model and must be called via :embedContent.
+	// gemini-embedding-2-preview is a multimodal embedding model and is not supported on the OpenAI-style /v1/embeddings endpoint.
 	if info.UpstreamModelName == "gemini-embedding-2-preview" {
 		return types.NewErrorWithStatusCode(
-			fmt.Errorf("gemini-embedding-2-preview is not supported on /v1/embeddings; use /v1beta/models/gemini-embedding-2-preview:embedContent"),
+			fmt.Errorf("gemini-embedding-2-preview is not supported on /v1/embeddings; use /v1beta/models/gemini-embedding-2-preview:embedContent (single) or :batchEmbedContents (batch)"),
 			types.ErrorCodeInvalidRequest,
 			http.StatusBadRequest,
 			types.ErrOptionWithSkipRetry(),
