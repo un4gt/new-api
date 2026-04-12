@@ -7,8 +7,11 @@ This script tests:
      POST /v1/embeddings  (model=gemini-embedding-001, text only)
      POST /v1/embeddings  (model=gemini-embedding-2-preview, text + optional extra_body.google.*)
 
-  2) Vertex/Gemini embedContent endpoint (multimodal):
+  2) Vertex/Gemini embedContent endpoint (multimodal, single):
      POST /v1beta/models/gemini-embedding-2-preview:embedContent
+
+  3) Gemini batchEmbedContents endpoint (multimodal, batch):
+     POST /v1beta/models/gemini-embedding-2-preview:batchEmbedContents
 
 Reference documentation:
   https://embedding-docs.tumuer.me/api/embeddings.html#endpoint
@@ -148,6 +151,32 @@ def _extract_embedcontent_vector(data: Dict[str, Any]) -> List[float]:
                 return values
 
     raise AssertionError("cannot find embedding values in embedContent response")
+
+
+def _extract_batch_embedcontents_vectors(data: Dict[str, Any], expected_items: Optional[int] = None) -> Tuple[int, int]:
+    _must(isinstance(data, dict), "response is not a JSON object")
+    embeddings = data.get("embeddings")
+    _must(isinstance(embeddings, list) and len(embeddings) > 0, "response.embeddings must be a non-empty list")
+    if expected_items is not None:
+        _must(len(embeddings) == expected_items, f"expected {expected_items} embeddings, got {len(embeddings)}")
+
+    first = embeddings[0]
+    _must(isinstance(first, dict), "response.embeddings[0] must be an object")
+    values = first.get("values")
+    _must(isinstance(values, list) and len(values) > 0, "response.embeddings[0].values must be a non-empty list")
+    dim = len(values)
+
+    for idx, it in enumerate(embeddings):
+        _must(isinstance(it, dict), f"response.embeddings[{idx}] must be an object")
+        v = it.get("values")
+        _must(isinstance(v, list) and len(v) == dim, f"embedding dims mismatch at index {idx}")
+    return dim, len(embeddings)
+
+
+def _read_file_base64(path: str) -> str:
+    with open(path, "rb") as f:
+        raw = f.read()
+    return base64.b64encode(raw).decode("utf-8")
 
 
 def _make_png_base64(
@@ -306,6 +335,31 @@ def main() -> int:
         help="Print request/response previews for easier debugging",
     )
     parser.add_argument(
+        "--image-file",
+        default="",
+        help="Optional local image path for multimodal embedding tests (png/jpg)",
+    )
+    parser.add_argument(
+        "--image-mime",
+        default="",
+        help="MIME for --image-file (image/png or image/jpeg). If empty, guessed or defaults to image/png.",
+    )
+    parser.add_argument(
+        "--audio-file",
+        default="",
+        help="Optional local audio path for multimodal embedding tests (mp3/wav)",
+    )
+    parser.add_argument(
+        "--audio-mime",
+        default="",
+        help="MIME for --audio-file (audio/mpeg,audio/mp3,audio/wav). If empty, guessed or defaults to audio/mpeg.",
+    )
+    parser.add_argument(
+        "--pdf-file",
+        default="",
+        help="Optional local PDF path for multimodal embedding tests",
+    )
+    parser.add_argument(
         "--video-file",
         default="",
         help="Optional local video file path to test video inlineData (mp4/mpeg)",
@@ -340,6 +394,43 @@ def main() -> int:
     sess = requests.Session()
 
     results: List[TestResult] = []
+
+    def _guess_mime_from_path(path: str, fallback: str) -> str:
+        ext = os.path.splitext(path.lower())[1]
+        mapping = {
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".pdf": "application/pdf",
+            ".mp3": "audio/mpeg",
+            ".wav": "audio/wav",
+            ".mp4": "video/mp4",
+            ".mpeg": "video/mpeg",
+            ".mpg": "video/mpeg",
+        }
+        return mapping.get(ext, fallback)
+
+    def _get_image_base64_and_mime() -> Tuple[str, str]:
+        if args.image_file:
+            mime = args.image_mime.strip() or _guess_mime_from_path(args.image_file, "image/png")
+            return _read_file_base64(args.image_file), mime
+        return _make_png_base64(), "image/png"
+
+    def _get_pdf_base64() -> str:
+        if args.pdf_file:
+            return _read_file_base64(args.pdf_file)
+        pdf_bytes = _make_minimal_pdf_bytes("Hello PDF")
+        return base64.b64encode(pdf_bytes).decode("utf-8")
+
+    def _get_audio_base64_and_mime() -> Tuple[str, str]:
+        if args.audio_file:
+            mime = args.audio_mime.strip() or _guess_mime_from_path(args.audio_file, "audio/mpeg")
+            return _read_file_base64(args.audio_file), mime
+        return _make_wav_base64(duration_seconds=1.0, sample_rate=16000), "audio/wav"
+
+    image_b64, image_mime = _get_image_base64_and_mime()
+    pdf_b64 = _get_pdf_base64()
+    audio_b64, audio_mime = _get_audio_base64_and_mime()
 
     def call(method: str, path: str, body: Optional[Dict[str, Any]]) -> Tuple[int, Optional[Dict[str, Any]], str, float]:
         url = f"{base_url}{path}"
@@ -394,41 +485,168 @@ def main() -> int:
         payload = {"model": "gemini-embedding-2-preview", "input": "hello embedding-2"}
         status, data, text, _ = call("POST", "/v1/embeddings", payload)
         _must(status == 200, f"/v1/embeddings (2-preview) failed: status={status}, body={_json_preview(text)}")
-        dim, items = _parse_openai_embeddings_response(data or {}, expected_model="gemini-embedding-2-preview", expected_items=1)
+        dim, items = _parse_openai_embeddings_response(
+            data or {}, expected_model="gemini-embedding-2-preview", expected_items=1
+        )
         _must(dim > 0 and items == 1, "invalid embedding-2 /v1/embeddings response")
 
-    def test_embedding_2_preview_extra_body_multimodal() -> None:
-        # Non-standard extension: allow passing Gemini embedContent-style payloads
-        # via extra_body.google.requests while keeping /v1/embeddings compatibility.
-        png_b64 = _make_png_base64()
+    def _embedding2_v1_embeddings_with_google_requests(
+        requests_body: List[Dict[str, Any]],
+        expected_items: int,
+        name: str,
+    ) -> None:
         payload = {
             "model": "gemini-embedding-2-preview",
-            "extra_body": {
-                "google": {
-                    "requests": [
-                        {"content": {"role": "user", "parts": [{"text": "hello extra_body"}]}},
-                        {
-                            "content": {
-                                "role": "user",
-                                "parts": [
-                                    {"text": "embed this image (extra_body)"},
-                                    {"inlineData": {"mimeType": "image/png", "data": png_b64}},
-                                ],
-                            }
-                        },
-                    ]
-                }
-            },
+            "extra_body": {"google": {"requests": requests_body}},
         }
         status, data, text, _ = call("POST", "/v1/embeddings", payload)
-        _must(status == 200, f"/v1/embeddings (2-preview extra_body) failed: status={status}, body={_json_preview(text)}")
-        dim, items = _parse_openai_embeddings_response(data or {}, expected_model="gemini-embedding-2-preview", expected_items=2)
-        _must(dim > 0 and items == 2, "invalid embedding-2 /v1/embeddings extra_body response")
+        _must(status == 200, f"{name} failed: status={status}, body={_json_preview(text)}")
+        dim, items = _parse_openai_embeddings_response(
+            data or {},
+            expected_model="gemini-embedding-2-preview",
+            expected_items=expected_items,
+        )
+        _must(dim > 0 and items == expected_items, f"{name} invalid response")
+
+    # /v1/embeddings + extra_body.google.* (single)
+    def test_embedding_2_preview_image_only_v1_embeddings() -> None:
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": image_mime,
+                                    "data": image_b64,
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            expected_items=1,
+            name="/v1/embeddings (2-preview image only, extra_body)",
+        )
+
+    def test_embedding_2_preview_aggregate_text_image_v1_embeddings() -> None:
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "An image of a dog"},
+                            {
+                                "inline_data": {
+                                    "mime_type": image_mime,
+                                    "data": image_b64,
+                                }
+                            },
+                        ]
+                    }
+                }
+            ],
+            expected_items=1,
+            name="/v1/embeddings (2-preview aggregate text+image, extra_body)",
+        )
+
+    def test_embedding_2_preview_audio_only_v1_embeddings() -> None:
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": audio_mime,
+                                    "data": audio_b64,
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            expected_items=1,
+            name="/v1/embeddings (2-preview audio only, extra_body)",
+        )
+
+    def test_embedding_2_preview_video_only_v1_embeddings_optional() -> None:
+        if not args.video_file:
+            _skip("no --video-file provided")
+        video_b64 = _read_file_base64(args.video_file)
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": args.video_mime,
+                                    "data": video_b64,
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            expected_items=1,
+            name="/v1/embeddings (2-preview video only, extra_body)",
+        )
+
+    def test_embedding_2_preview_pdf_only_v1_embeddings() -> None:
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": "application/pdf",
+                                    "data": pdf_b64,
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            expected_items=1,
+            name="/v1/embeddings (2-preview pdf only, extra_body)",
+        )
+
+    # /v1/embeddings + extra_body.google.* (batch)
+    def test_embedding_2_preview_batch_text_and_image_v1_embeddings() -> None:
+        _embedding2_v1_embeddings_with_google_requests(
+            requests_body=[
+                {"content": {"parts": [{"text": "The dog is cute"}]}},
+                {
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": image_mime,
+                                    "data": image_b64,
+                                }
+                            }
+                        ]
+                    }
+                },
+            ],
+            expected_items=2,
+            name="/v1/embeddings (2-preview batch text+image, extra_body)",
+        )
 
     def _embedcontent_post(payload: Dict[str, Any]) -> Dict[str, Any]:
         status, data, text, _ = call("POST", "/v1beta/models/gemini-embedding-2-preview:embedContent", payload)
         _must(status == 200, f"embedContent failed: status={status}, body={_json_preview(text)}")
         _must(isinstance(data, dict), "embedContent response is not JSON object")
+        return data or {}
+
+    def _batch_embedcontents_post(payload: Dict[str, Any]) -> Dict[str, Any]:
+        status, data, text, _ = call(
+            "POST", "/v1beta/models/gemini-embedding-2-preview:batchEmbedContents", payload
+        )
+        _must(status == 200, f"batchEmbedContents failed: status={status}, body={_json_preview(text)}")
+        _must(isinstance(data, dict), "batchEmbedContents response is not JSON object")
         return data or {}
 
     def test_embedcontent_2_text() -> None:
@@ -455,98 +673,91 @@ def main() -> int:
         vec2 = _extract_embedcontent_vector(data2)
         _must(len(vec2) == dim, f"expected dim={dim}, got dim={len(vec2)}")
 
-    def test_embedcontent_2_image_png() -> None:
-        png_b64 = _make_png_base64()
+    # :embedContent (single) - aligns with Gemini docs examples (inline_data + mime_type).
+    def test_embedcontent_2_image_only() -> None:
         payload = {
             "content": {
-                "role": "user",
                 "parts": [
-                    {"text": "embed this image"},
                     {
-                        "inlineData": {
-                            "mimeType": "image/png",
-                            "data": png_b64,
+                        "inline_data": {
+                            "mime_type": image_mime,
+                            "data": image_b64,
+                        }
+                    }
+                ]
+            }
+        }
+        data = _embedcontent_post(payload)
+        vec = _extract_embedcontent_vector(data)
+        _must(len(vec) > 0, "empty embedding vector")
+
+    def test_embedcontent_2_aggregate_text_image() -> None:
+        payload = {
+            "content": {
+                "parts": [
+                    {"text": "An image of a dog"},
+                    {
+                        "inline_data": {
+                            "mime_type": image_mime,
+                            "data": image_b64,
                         }
                     },
-                ],
-            },
+                ]
+            }
         }
         data = _embedcontent_post(payload)
         vec = _extract_embedcontent_vector(data)
         _must(len(vec) > 0, "empty embedding vector")
 
-    def test_embedcontent_2_pdf() -> None:
-        pdf_bytes = _make_minimal_pdf_bytes("Hello PDF")
-        pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    def test_embedcontent_2_audio_only() -> None:
         payload = {
             "content": {
-                "role": "user",
                 "parts": [
-                    {"text": "embed this pdf"},
                     {
-                        "inlineData": {
-                            "mimeType": "application/pdf",
-                            "data": pdf_b64,
+                        "inline_data": {
+                            "mime_type": audio_mime,
+                            "data": audio_b64,
                         }
-                    },
-                ],
-            },
+                    }
+                ]
+            }
         }
         data = _embedcontent_post(payload)
         vec = _extract_embedcontent_vector(data)
         _must(len(vec) > 0, "empty embedding vector")
 
-    def test_embedcontent_2_pdf_document_ocr() -> None:
-        pdf_bytes = _make_minimal_pdf_bytes("OCR PDF")
-        pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
-        payload = {
-            "content": {
-                "role": "user",
-                "parts": [
-                    {"text": "embed this pdf with ocr"},
-                    {
-                        "inlineData": {
-                            "mimeType": "application/pdf",
-                            "data": pdf_b64,
-                        }
-                    },
-                ],
-            },
-            "embedContentConfig": {"documentOcr": True},
-        }
-        data = _embedcontent_post(payload)
-        vec = _extract_embedcontent_vector(data)
-        _must(len(vec) > 0, "empty embedding vector")
-
-    def test_embedcontent_2_audio_wav() -> None:
-        wav_b64 = _make_wav_base64(duration_seconds=1.0, sample_rate=16000)
-        payload = {
-            "content": {
-                "role": "user",
-                "parts": [
-                    {"text": "embed this wav"},
-                    {"inlineData": {"mimeType": "audio/wav", "data": wav_b64}},
-                ],
-            },
-        }
-        data = _embedcontent_post(payload)
-        vec = _extract_embedcontent_vector(data)
-        _must(len(vec) > 0, "empty embedding vector")
-
-    def test_embedcontent_2_video_optional() -> None:
+    def test_embedcontent_2_video_only_optional() -> None:
         if not args.video_file:
             _skip("no --video-file provided")
-        with open(args.video_file, "rb") as f:
-            raw = f.read()
-        b64 = base64.b64encode(raw).decode("utf-8")
+        video_b64 = _read_file_base64(args.video_file)
         payload = {
             "content": {
-                "role": "user",
                 "parts": [
-                    {"text": "embed this video"},
-                    {"inlineData": {"mimeType": args.video_mime, "data": b64}},
-                ],
-            },
+                    {
+                        "inline_data": {
+                            "mime_type": args.video_mime,
+                            "data": video_b64,
+                        }
+                    }
+                ]
+            }
+        }
+        data = _embedcontent_post(payload)
+        vec = _extract_embedcontent_vector(data)
+        _must(len(vec) > 0, "empty embedding vector")
+
+    def test_embedcontent_2_pdf_only() -> None:
+        payload = {
+            "content": {
+                "parts": [
+                    {
+                        "inline_data": {
+                            "mime_type": "application/pdf",
+                            "data": pdf_b64,
+                        }
+                    }
+                ]
+            }
         }
         data = _embedcontent_post(payload)
         vec = _extract_embedcontent_vector(data)
@@ -571,6 +782,33 @@ def main() -> int:
         data = _embedcontent_post(payload)
         vec = _extract_embedcontent_vector(data)
         _must(len(vec) > 0, "empty embedding vector")
+
+    # :batchEmbedContents (batch) - aligns with Gemini docs examples.
+    def test_batch_embedcontents_2_text_and_image() -> None:
+        payload = {
+            "requests": [
+                {
+                    "model": "models/gemini-embedding-2-preview",
+                    "content": {"parts": [{"text": "The dog is cute"}]},
+                },
+                {
+                    "model": "models/gemini-embedding-2-preview",
+                    "content": {
+                        "parts": [
+                            {
+                                "inline_data": {
+                                    "mime_type": image_mime,
+                                    "data": image_b64,
+                                }
+                            }
+                        ]
+                    },
+                },
+            ]
+        }
+        data = _batch_embedcontents_post(payload)
+        dim, items = _extract_batch_embedcontents_vectors(data, expected_items=2)
+        _must(dim > 0 and items == 2, "invalid batchEmbedContents response")
 
     def negative_tests() -> None:
         # 1) outputDimensionality > 3072 should be rejected by gateway
@@ -627,16 +865,34 @@ def main() -> int:
     results.append(_run_test("POST /v1/embeddings (001 batch)", test_embedding_001_batch))
     results.append(_run_test("POST /v1/embeddings (001 dimensions best-effort)", test_embedding_001_dimensions_best_effort))
     results.append(_run_test("POST /v1/embeddings (2-preview text)", test_embedding_2_preview_text))
-    results.append(_run_test("POST /v1/embeddings (2-preview extra_body multimodal)", test_embedding_2_preview_extra_body_multimodal))
+    results.append(_run_test("POST /v1/embeddings (2-preview image only)", test_embedding_2_preview_image_only_v1_embeddings))
+    results.append(
+        _run_test(
+            "POST /v1/embeddings (2-preview aggregate text+image)",
+            test_embedding_2_preview_aggregate_text_image_v1_embeddings,
+        )
+    )
+    results.append(_run_test("POST /v1/embeddings (2-preview audio)", test_embedding_2_preview_audio_only_v1_embeddings))
+    results.append(
+        _run_test("POST /v1/embeddings (2-preview video optional)", test_embedding_2_preview_video_only_v1_embeddings_optional)
+    )
+    results.append(_run_test("POST /v1/embeddings (2-preview document)", test_embedding_2_preview_pdf_only_v1_embeddings))
+    results.append(
+        _run_test(
+            "POST /v1/embeddings (2-preview batch text+image)",
+            test_embedding_2_preview_batch_text_and_image_v1_embeddings,
+        )
+    )
 
     results.append(_run_test("POST :embedContent (2 text)", test_embedcontent_2_text))
     results.append(_run_test("POST :embedContent (2 dimensions best-effort)", test_embedcontent_2_dimensions_best_effort))
-    results.append(_run_test("POST :embedContent (2 image/png)", test_embedcontent_2_image_png))
-    results.append(_run_test("POST :embedContent (2 application/pdf)", test_embedcontent_2_pdf))
-    results.append(_run_test("POST :embedContent (2 application/pdf, documentOcr)", test_embedcontent_2_pdf_document_ocr))
-    results.append(_run_test("POST :embedContent (2 audio/wav)", test_embedcontent_2_audio_wav))
-    results.append(_run_test("POST :embedContent (2 video optional)", test_embedcontent_2_video_optional))
+    results.append(_run_test("POST :embedContent (2 image only)", test_embedcontent_2_image_only))
+    results.append(_run_test("POST :embedContent (2 aggregate text+image)", test_embedcontent_2_aggregate_text_image))
+    results.append(_run_test("POST :embedContent (2 audio)", test_embedcontent_2_audio_only))
+    results.append(_run_test("POST :embedContent (2 video optional)", test_embedcontent_2_video_only_optional))
+    results.append(_run_test("POST :embedContent (2 document)", test_embedcontent_2_pdf_only))
     results.append(_run_test("POST :embedContent (2 fileUri optional)", test_embedcontent_2_fileuri_optional))
+    results.append(_run_test("POST :batchEmbedContents (2 text+image)", test_batch_embedcontents_2_text_and_image))
 
     if args.negative:
         results.append(_run_test("Negative tests", negative_tests))
