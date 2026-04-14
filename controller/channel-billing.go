@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -119,6 +120,18 @@ type OpenRouterCreditResponse struct {
 		TotalCredits float64 `json:"total_credits"`
 		TotalUsage   float64 `json:"total_usage"`
 	} `json:"data"`
+}
+
+type MoarkPackageBalanceResponse struct {
+	TotalAmount float64 `json:"total_amount"`
+	UsedAmount  float64 `json:"used_amount"`
+	Balance     float64 `json:"balance"`
+	Details     []struct {
+		Ident   string  `json:"ident"`
+		Name    string  `json:"name"`
+		Amount  float64 `json:"amount"`
+		Balance float64 `json:"balance"`
+	} `json:"details"`
 }
 
 // GetAuthHeader get auth header
@@ -314,6 +327,41 @@ func updateChannelOpenRouterBalance(channel *model.Channel) (float64, error) {
 	return balance, nil
 }
 
+func moarkBalanceURL(baseURL string) string {
+	baseURL = strings.TrimRight(baseURL, "/")
+	if strings.HasSuffix(baseURL, "/v1") {
+		return baseURL + "/tokens/packages/balance"
+	}
+	return baseURL + "/v1/tokens/packages/balance"
+}
+
+func parseMoarkBalance(body []byte) (float64, error) {
+	response := MoarkPackageBalanceResponse{}
+	err := common.Unmarshal(body, &response)
+	if err != nil {
+		return 0, err
+	}
+	return response.Balance, nil
+}
+
+func updateChannelMoarkBalance(channel *model.Channel) (float64, error) {
+	baseURL := channel.GetBaseURL()
+	if baseURL == "" {
+		baseURL = constant.ChannelBaseURLs[channel.Type]
+	}
+	url := moarkBalanceURL(baseURL)
+	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
+	if err != nil {
+		return 0, err
+	}
+	balance, err := parseMoarkBalance(body)
+	if err != nil {
+		return 0, err
+	}
+	channel.UpdateBalance(balance)
+	return balance, nil
+}
+
 func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	url := "https://api.moonshot.cn/v1/users/me/balance"
 	body, err := GetResponseBody("GET", url, channel, GetAuthHeader(channel.Key))
@@ -378,6 +426,8 @@ func updateChannelBalance(channel *model.Channel) (float64, error) {
 		return updateChannelOpenRouterBalance(channel)
 	case constant.ChannelTypeMoonshot:
 		return updateChannelMoonshotBalance(channel)
+	case constant.ChannelTypeMoark:
+		return updateChannelMoarkBalance(channel)
 	default:
 		return 0, errors.New("尚未实现")
 	}

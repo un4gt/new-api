@@ -19,6 +19,7 @@ tiktoken_cache
 .gocache
 .gomodcache/
 .cache
+moark.yaml
 
 # Python bytecode / caches
 __pycache__/
