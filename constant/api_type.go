@@ -7,7 +7,7 @@ const (
 	APITypeBaidu
 	APITypeZhipu
 	APITypeAli
-	APITypeXunfei
+	APITypeXunfei         // Xunfei Xingchen
 	APITypeAIProxyLibrary // removed
 	APITypeTencent
 	APITypeGemini

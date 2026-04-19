@@ -127,12 +127,11 @@ const PARAM_OVERRIDE_OPERATIONS_TEMPLATE = {
 };
 
 function type2secretPrompt(type) {
-  // inputs.type === 15 ? '按照如下格式输入：APIKey|SecretKey' : (inputs.type === 18 ? '按照如下格式输入：APPID|APISecret|APIKey' : '请输入渠道对应的鉴权密钥')
   switch (type) {
     case 15:
       return '按照如下格式输入：APIKey|SecretKey';
     case 18:
-      return '按照如下格式输入：APPID|APISecret|APIKey';
+      return '请输入讯飞星辰服务对应的 APIKey';
     case 23:
       return '按照如下格式输入：AppId|SecretId|SecretKey';
     case 45:
@@ -1553,18 +1552,15 @@ const EditChannelModal = (props) => {
       }
     }
 
-    if (localInputs.base_url && localInputs.base_url.endsWith('/')) {
-      localInputs.base_url = localInputs.base_url.slice(
-        0,
-        localInputs.base_url.length - 1,
-      );
-    }
-    if (localInputs.type === 18 && localInputs.other === '') {
-      localInputs.other = 'v2.1';
-    }
+	if (localInputs.base_url && localInputs.base_url.endsWith('/')) {
+	  localInputs.base_url = localInputs.base_url.slice(
+	    0,
+	    localInputs.base_url.length - 1,
+	  );
+	}
 
-    // 生成渠道额外设置JSON
-    const channelExtraSettings = {
+	// 生成渠道额外设置JSON
+	const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
       proxy: localInputs.proxy || '',
@@ -1877,12 +1873,14 @@ const EditChannelModal = (props) => {
 
   const channelOptionList = useMemo(
     () =>
-      CHANNEL_OPTIONS.map((opt) => ({
+      CHANNEL_OPTIONS.filter(
+        (opt) => !opt.hidden || opt.value === props.editingChannel.type,
+      ).map((opt) => ({
         ...opt,
         // 保持 label 为纯文本以支持搜索
         label: opt.label,
       })),
-    [],
+    [props.editingChannel.type],
   );
 
   const renderChannelOption = (renderProps) => {
@@ -2459,22 +2457,10 @@ const EditChannelModal = (props) => {
                           />
                         )}
                       </>
-                    )}
+	                    )}
 
-                    {inputs.type === 18 && (
-                      <Form.Input
-                        field='other'
-                        label={t('模型版本')}
-                        placeholder={
-                          '请输入星火大模型版本，注意是接口地址中的版本号，例如：v2.1'
-                        }
-                        onChange={(value) => handleInputChange('other', value)}
-                        showClear
-                      />
-                    )}
-
-                    {inputs.type === 41 && (
-                      <JSONEditor
+	                    {inputs.type === 41 && (
+	                      <JSONEditor
                         key={`region-${isEdit ? channelId : 'new'}`}
                         field='other'
                         label={t('部署地区')}

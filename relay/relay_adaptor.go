@@ -30,7 +30,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/replicate"
 	"github.com/QuantumNous/new-api/relay/channel/siliconflow"
 	"github.com/QuantumNous/new-api/relay/channel/submodel"
-	"github.com/QuantumNous/new-api/relay/channel/zeroentropy"
 	taskali "github.com/QuantumNous/new-api/relay/channel/task/ali"
 	taskdoubao "github.com/QuantumNous/new-api/relay/channel/task/doubao"
 	taskGemini "github.com/QuantumNous/new-api/relay/channel/task/gemini"
@@ -45,7 +44,8 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/vertex"
 	"github.com/QuantumNous/new-api/relay/channel/volcengine"
 	"github.com/QuantumNous/new-api/relay/channel/xai"
-	"github.com/QuantumNous/new-api/relay/channel/xunfei"
+	"github.com/QuantumNous/new-api/relay/channel/xunfei_xingchen"
+	"github.com/QuantumNous/new-api/relay/channel/zeroentropy"
 	"github.com/QuantumNous/new-api/relay/channel/zhipu"
 	"github.com/QuantumNous/new-api/relay/channel/zhipu_4v"
 	"github.com/gin-gonic/gin"
@@ -66,7 +66,7 @@ func GetAdaptor(apiType int) channel.Adaptor {
 	case constant.APITypeTencent:
 		return &tencent.Adaptor{}
 	case constant.APITypeXunfei:
-		return &xunfei.Adaptor{}
+		return &xunfei_xingchen.Adaptor{}
 	case constant.APITypeZhipu:
 		return &zhipu.Adaptor{}
 	case constant.APITypeZhipuV4:

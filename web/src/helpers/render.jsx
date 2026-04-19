@@ -239,11 +239,6 @@ export const getModelCategories = (() => {
         icon: <Wenxin.Color />,
         filter: (model) => model.model_name.toLowerCase().includes('ernie'),
       },
-      xunfei: {
-        label: t('讯飞星火'),
-        icon: <Spark.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('spark'),
-      },
       tencent: {
         label: t('腾讯混元'),
         icon: <Hunyuan.Color />,
@@ -336,10 +331,10 @@ export function getChannelIcon(channelType) {
     case 15: // 百度文心千帆
     case 46: // 百度文心千帆V2
       return <Wenxin.Color size={iconSize} />;
+    case 18: // 讯飞星辰
+      return <Spark.Color size={iconSize} />;
     case 17: // 阿里通义千问
       return <Qwen.Color size={iconSize} />;
-    case 18: // 讯飞星火认知
-      return <Spark.Color size={iconSize} />;
     case 16: // 智谱 ChatGLM
     case 26: // 智谱 GLM-4V
       return <Zhipu.Color size={iconSize} />;

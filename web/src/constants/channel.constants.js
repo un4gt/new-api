@@ -56,7 +56,7 @@ export const CHANNEL_OPTIONS = [
   {
     value: 18,
     color: 'blue',
-    label: '讯飞星火认知',
+    label: '讯飞星辰',
   },
   {
     value: 16,
