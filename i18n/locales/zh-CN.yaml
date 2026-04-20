@@ -50,6 +50,17 @@ redemption.failed: "兑换失败，请稍后重试"
 redemption.not_provided: "未提供兑换码"
 redemption.expire_time_invalid: "过期时间不能早于当前时间"
 
+# Registration invite messages
+registration_invite.required: "注册前必须先激活邀请码"
+registration_invite.code_empty: "邀请码不能为空"
+registration_invite.invalid: "邀请码无效"
+registration_invite.expired: "邀请码已过期"
+registration_invite.used: "邀请码已被使用"
+registration_invite.revoked: "邀请码已被撤销"
+registration_invite.activated: "邀请码已激活"
+registration_invite.activation_expired: "邀请码激活状态已过期，请重新激活"
+registration_invite.note_too_long: "邀请码备注过长"
+
 # User messages
 user.password_login_disabled: "管理员关闭了密码登录"
 user.register_disabled: "管理员关闭了新用户注册"

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import React from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { Tabs, Tag } from '@douyinfe/semi-ui';
 import CardPro from '../../common/ui/CardPro';
 import UsersTable from './UsersTable';
@@ -26,16 +26,21 @@ import UsersFilters from './UsersFilters';
 import UsersDescription from './UsersDescription';
 import AddUserModal from './modals/AddUserModal';
 import EditUserModal from './modals/EditUserModal';
+import RegistrationInviteModal from './modals/RegistrationInviteModal';
 import {
   useUsersData,
   USER_VIEW_MODES,
 } from '../../../hooks/users/useUsersData';
 import { useIsMobile } from '../../../hooks/common/useIsMobile';
 import { createCardProPagination } from '../../../helpers/utils';
+import { UserContext } from '../../../context/User';
 
 const UsersPage = () => {
   const usersData = useUsersData();
   const isMobile = useIsMobile();
+  const [userState] = useContext(UserContext);
+  const [showRegistrationInviteModal, setShowRegistrationInviteModal] =
+    useState(false);
 
   const {
     // Modal state
@@ -68,6 +73,23 @@ const UsersPage = () => {
     // Translation
     t,
   } = usersData;
+
+  const currentUser = useMemo(() => {
+    if (userState?.user) {
+      return userState.user;
+    }
+    const raw = localStorage.getItem('user');
+    if (!raw) {
+      return null;
+    }
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      return null;
+    }
+  }, [userState?.user]);
+
+  const isRoot = currentUser?.role === 100;
 
   const usersTabs = (
     <Tabs
@@ -122,6 +144,14 @@ const UsersPage = () => {
         editingUser={editingUser}
       />
 
+      {isRoot && (
+        <RegistrationInviteModal
+          visible={showRegistrationInviteModal}
+          handleClose={() => setShowRegistrationInviteModal(false)}
+          t={t}
+        />
+      )}
+
       <CardPro
         type='type3'
         descriptionArea={
@@ -135,7 +165,12 @@ const UsersPage = () => {
         tabsArea={usersTabs}
         actionsArea={
           <div className='flex flex-col md:flex-row justify-between items-center gap-2 w-full'>
-            <UsersActions setShowAddUser={setShowAddUser} t={t} />
+            <UsersActions
+              isRoot={isRoot}
+              setShowAddUser={setShowAddUser}
+              setShowRegistrationInviteModal={setShowRegistrationInviteModal}
+              t={t}
+            />
 
             <UsersFilters
               formInitValues={formInitValues}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type LoginRequest struct {
@@ -112,7 +113,12 @@ func setupLogin(user *model.User, c *gin.Context) {
 
 func Logout(c *gin.Context) {
 	session := sessions.Default(c)
+	activation := peekRegistrationInviteActivation(session)
+	preserveActivation := activation != nil && activation.ExpiresAt > common.GetTimestamp()
 	session.Clear()
+	if preserveActivation {
+		setRegistrationInviteActivation(session, activation)
+	}
 	err := session.Save()
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -175,17 +181,43 @@ func Register(c *gin.Context) {
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	if err := cleanUser.Insert(); err != nil {
+	session := sessions.Default(c)
+	var activation *registrationInviteActivation
+	if common.RegistrationInviteRequired {
+		activation, err = getRegistrationInviteActivation(c, session)
+		if err != nil {
+			writeRegistrationInviteError(c, session, err)
+			return
+		}
+	}
+
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := cleanUser.InsertWithTx(tx); err != nil {
+			return err
+		}
+		if activation != nil {
+			return model.ConsumeRegistrationInviteTx(tx, activation.InviteID, cleanUser.Id, "password", cleanUser.Username)
+		}
+		return nil
+	})
+	if err != nil {
+		if activation != nil {
+			writeRegistrationInviteError(c, session, err)
+			return
+		}
 		common.ApiError(c, err)
 		return
 	}
 
-	// 获取插入后的用户ID
-	var insertedUser model.User
-	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
-		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
-		return
+	cleanUser.FinalizeOAuthUserCreation()
+	if activation != nil {
+		clearRegistrationInviteActivation(session)
+		if err := session.Save(); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
+			return
+		}
 	}
+
 	// 生成默认令牌
 	if constant.GenerateDefaultToken {
 		key, err := common.GenerateKey()
@@ -196,7 +228,7 @@ func Register(c *gin.Context) {
 		}
 		// 生成默认令牌
 		token := model.Token{
-			UserId:             insertedUser.Id, // 使用插入后的用户ID
+			UserId:             cleanUser.Id,
 			Name:               cleanUser.Username + "的初始令牌",
 			Key:                key,
 			CreatedTime:        common.GetTimestamp(),

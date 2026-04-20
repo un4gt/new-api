@@ -44,6 +44,20 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/oauth/:provider", middleware.CriticalRateLimit(), controller.HandleOAuth)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
 
+		registrationInviteRoute := apiRouter.Group("/registration-invite")
+		{
+			registrationInviteRoute.GET("/activation", middleware.CriticalRateLimit(), controller.GetRegistrationInviteActivationStatus)
+			registrationInviteRoute.POST("/activate", middleware.CriticalRateLimit(), controller.ActivateRegistrationInvite)
+
+			rootRegistrationInviteRoute := registrationInviteRoute.Group("/")
+			rootRegistrationInviteRoute.Use(middleware.RootAuth())
+			{
+				rootRegistrationInviteRoute.GET("/", controller.GetRegistrationInvites)
+				rootRegistrationInviteRoute.POST("/", controller.CreateRegistrationInvite)
+				rootRegistrationInviteRoute.POST("/:id/revoke", controller.RevokeRegistrationInvite)
+			}
+		}
+
 		// Universal secure verification routes
 		apiRouter.POST("/verify", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.UniversalVerify)
 

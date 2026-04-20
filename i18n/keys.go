@@ -58,6 +58,19 @@ const (
 	MsgRedemptionExpireTimeInvalid = "redemption.expire_time_invalid"
 )
 
+// Registration invite related messages
+const (
+	MsgRegistrationInviteRequired          = "registration_invite.required"
+	MsgRegistrationInviteCodeEmpty         = "registration_invite.code_empty"
+	MsgRegistrationInviteInvalid           = "registration_invite.invalid"
+	MsgRegistrationInviteExpired           = "registration_invite.expired"
+	MsgRegistrationInviteUsed              = "registration_invite.used"
+	MsgRegistrationInviteRevoked           = "registration_invite.revoked"
+	MsgRegistrationInviteActivated         = "registration_invite.activated"
+	MsgRegistrationInviteActivationExpired = "registration_invite.activation_expired"
+	MsgRegistrationInviteNoteTooLong       = "registration_invite.note_too_long"
+)
+
 // User related messages
 const (
 	MsgUserPasswordLoginDisabled     = "user.password_login_disabled"

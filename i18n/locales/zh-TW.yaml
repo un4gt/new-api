@@ -50,6 +50,17 @@ redemption.failed: "兌換失敗，請稍後重試"
 redemption.not_provided: "未提供兌換碼"
 redemption.expire_time_invalid: "過期時間不能早於當前時間"
 
+# Registration invite messages
+registration_invite.required: "註冊前必須先啟用邀請碼"
+registration_invite.code_empty: "邀請碼不能為空"
+registration_invite.invalid: "邀請碼無效"
+registration_invite.expired: "邀請碼已過期"
+registration_invite.used: "邀請碼已被使用"
+registration_invite.revoked: "邀請碼已被撤銷"
+registration_invite.activated: "邀請碼已啟用"
+registration_invite.activation_expired: "邀請碼啟用狀態已過期，請重新啟用"
+registration_invite.note_too_long: "邀請碼備註過長"
+
 # User messages
 user.password_login_disabled: "管理員關閉了密碼登錄"
 user.register_disabled: "管理員關閉了新使用者註冊"

@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type wechatLoginResponse struct {
@@ -39,7 +39,7 @@ func getWeChatIdByCode(code string) (string, error) {
 	}
 	defer httpResponse.Body.Close()
 	var res wechatLoginResponse
-	err = json.NewDecoder(httpResponse.Body).Decode(&res)
+	err = common.DecodeJson(httpResponse.Body, &res)
 	if err != nil {
 		return "", err
 	}
@@ -90,17 +90,45 @@ func WeChatAuth(c *gin.Context) {
 		}
 	} else {
 		if common.RegisterEnabled {
+			session := sessions.Default(c)
+			var activation *registrationInviteActivation
+			if common.RegistrationInviteRequired {
+				activation, err = getRegistrationInviteActivation(c, session)
+				if err != nil {
+					writeRegistrationInviteError(c, session, err)
+					return
+				}
+			}
+
 			user.Username = "wechat_" + strconv.Itoa(model.GetMaxUserId()+1)
 			user.DisplayName = "WeChat User"
 			user.Role = common.RoleCommonUser
 			user.Status = common.UserStatusEnabled
 
-			if err := user.Insert(); err != nil {
+			err := model.DB.Transaction(func(tx *gorm.DB) error {
+				if err := user.InsertWithTx(tx); err != nil {
+					return err
+				}
+				if activation != nil {
+					return model.ConsumeRegistrationInviteTx(tx, activation.InviteID, user.Id, "wechat", wechatId)
+				}
+				return nil
+			})
+			if err != nil {
+				if activation != nil {
+					writeRegistrationInviteError(c, session, err)
+					return
+				}
 				c.JSON(http.StatusOK, gin.H{
 					"success": false,
 					"message": err.Error(),
 				})
 				return
+			}
+
+			user.FinalizeOAuthUserCreation()
+			if activation != nil {
+				clearRegistrationInviteActivation(session)
 			}
 		} else {
 			c.JSON(http.StatusOK, gin.H{
@@ -118,6 +146,7 @@ func WeChatAuth(c *gin.Context) {
 		})
 		return
 	}
+
 	setupLogin(&user, c)
 }
 

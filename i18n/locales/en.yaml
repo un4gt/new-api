@@ -49,6 +49,17 @@ redemption.failed: "Redemption failed, please try again later"
 redemption.not_provided: "Redemption code not provided"
 redemption.expire_time_invalid: "Expiration time cannot be earlier than current time"
 
+# Registration invite messages
+registration_invite.required: "A registration invite code is required before sign up"
+registration_invite.code_empty: "Invite code cannot be empty"
+registration_invite.invalid: "Invite code is invalid"
+registration_invite.expired: "Invite code has expired"
+registration_invite.used: "Invite code has already been used"
+registration_invite.revoked: "Invite code has been revoked"
+registration_invite.activated: "Invite code activated"
+registration_invite.activation_expired: "Invite activation has expired, please activate again"
+registration_invite.note_too_long: "Invite note is too long"
+
 # User messages
 user.password_login_disabled: "Password login has been disabled by administrator"
 user.register_disabled: "New user registration has been disabled by administrator"

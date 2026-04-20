@@ -20,7 +20,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React from 'react';
 import { Button } from '@douyinfe/semi-ui';
 
-const UsersActions = ({ setShowAddUser, t }) => {
+const UsersActions = ({ isRoot, setShowAddUser, setShowRegistrationInviteModal, t }) => {
   // Add new user
   const handleAddUser = () => {
     setShowAddUser(true);
@@ -31,6 +31,15 @@ const UsersActions = ({ setShowAddUser, t }) => {
       <Button className='w-full md:w-auto' onClick={handleAddUser} size='small'>
         {t('添加用户')}
       </Button>
+      {isRoot && (
+        <Button
+          className='w-full md:w-auto'
+          onClick={() => setShowRegistrationInviteModal(true)}
+          size='small'
+        >
+          {t('邀请码管理')}
+        </Button>
+      )}
     </div>
   );
 };

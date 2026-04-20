@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   API,
   getLogo,
@@ -40,6 +40,7 @@ import {
   Divider,
   Form,
   Icon,
+  Input,
   Modal,
 } from '@douyinfe/semi-ui';
 import Title from '@douyinfe/semi-ui/lib/es/typography/title';
@@ -67,6 +68,7 @@ import { SiDiscord } from 'react-icons/si';
 
 const RegisterForm = () => {
   let navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { t } = useTranslation();
   const githubButtonTextKeyByState = {
     idle: '使用 GitHub 继续',
@@ -101,6 +103,10 @@ const RegisterForm = () => {
     useState(false);
   const [wechatCodeSubmitLoading, setWechatCodeSubmitLoading] = useState(false);
   const [customOAuthLoading, setCustomOAuthLoading] = useState({});
+  const [inviteCode, setInviteCode] = useState('');
+  const [inviteActivated, setInviteActivated] = useState(false);
+  const [inviteActivationExpiresAt, setInviteActivationExpiresAt] = useState(0);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const [disableButton, setDisableButton] = useState(false);
   const [countdown, setCountdown] = useState(30);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -126,6 +132,10 @@ const RegisterForm = () => {
   }, [statusState?.status]);
   const hasCustomOAuthProviders =
     (status.custom_oauth_providers || []).length > 0;
+  const registrationInviteRequired = Boolean(
+    status.registration_invite_required,
+  );
+  const inviteGateReady = !registrationInviteRequired || inviteActivated;
   const hasOAuthRegisterOptions = Boolean(
     status.github_oauth ||
       status.discord_oauth ||
@@ -151,6 +161,34 @@ const RegisterForm = () => {
   }, [status]);
 
   useEffect(() => {
+    const inviteFromQuery = searchParams.get('invite');
+    if (inviteFromQuery) {
+      setInviteCode(inviteFromQuery);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!registrationInviteRequired) {
+      setInviteActivated(false);
+      setInviteActivationExpiresAt(0);
+      return;
+    }
+
+    const syncInviteActivation = async () => {
+      try {
+        const res = await API.get('/api/registration-invite/activation');
+        const { success, data } = res.data;
+        if (success) {
+          setInviteActivated(Boolean(data?.active));
+          setInviteActivationExpiresAt(data?.expires_at || 0);
+        }
+      } catch (error) {}
+    };
+
+    syncInviteActivation();
+  }, [registrationInviteRequired]);
+
+  useEffect(() => {
     let countdownInterval = null;
     if (disableButton && countdown > 0) {
       countdownInterval = setInterval(() => {
@@ -172,6 +210,10 @@ const RegisterForm = () => {
   }, []);
 
   const onWeChatLoginClicked = () => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     setWechatLoading(true);
     setShowWeChatLoginModal(true);
     setWechatLoading(false);
@@ -211,6 +253,10 @@ const RegisterForm = () => {
   }
 
   async function handleSubmit(e) {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     if (password.length < 8) {
       showInfo('密码长度不得小于 8 位！');
       return;
@@ -271,6 +317,10 @@ const RegisterForm = () => {
   };
 
   const handleGitHubClick = () => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     if (githubButtonDisabled) {
       return;
     }
@@ -293,6 +343,10 @@ const RegisterForm = () => {
   };
 
   const handleDiscordClick = () => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     setDiscordLoading(true);
     try {
       onDiscordOAuthClicked(status.discord_client_id, { shouldLogout: true });
@@ -302,6 +356,10 @@ const RegisterForm = () => {
   };
 
   const handleOIDCClick = () => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     setOidcLoading(true);
     try {
       onOIDCClicked(
@@ -316,6 +374,10 @@ const RegisterForm = () => {
   };
 
   const handleLinuxDOClick = () => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     setLinuxdoLoading(true);
     try {
       onLinuxDOOAuthClicked(status.linuxdo_client_id, { shouldLogout: true });
@@ -325,6 +387,10 @@ const RegisterForm = () => {
   };
 
   const handleCustomOAuthClick = (provider) => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     setCustomOAuthLoading((prev) => ({ ...prev, [provider.slug]: true }));
     try {
       onCustomOAuthClicked(provider, { shouldLogout: true });
@@ -348,6 +414,10 @@ const RegisterForm = () => {
   };
 
   const onTelegramLoginClicked = async (response) => {
+    if (!inviteGateReady) {
+      showInfo(t('请先激活邀请码'));
+      return;
+    }
     const fields = [
       'id',
       'first_name',
@@ -382,6 +452,89 @@ const RegisterForm = () => {
     }
   };
 
+  const activateInviteCode = async () => {
+    if (!registrationInviteRequired) {
+      return;
+    }
+    if (!inviteCode.trim()) {
+      showInfo(t('请输入邀请码'));
+      return;
+    }
+
+    setInviteLoading(true);
+    try {
+      const res = await API.post('/api/registration-invite/activate', {
+        code: inviteCode,
+      });
+      const { success, message, data } = res.data;
+      if (success) {
+        setInviteActivated(Boolean(data?.active));
+        setInviteActivationExpiresAt(data?.expires_at || 0);
+        showSuccess(message || t('邀请码已激活'));
+      } else {
+        setInviteActivated(false);
+        setInviteActivationExpiresAt(0);
+        showError(message);
+      }
+    } catch (error) {
+      showError(t('邀请码激活失败，请重试'));
+    } finally {
+      setInviteLoading(false);
+    }
+  };
+
+  const formatInviteActivationTime = (timestamp) => {
+    if (!timestamp) {
+      return '';
+    }
+    return new Date(timestamp * 1000).toLocaleString();
+  };
+
+  const renderRegistrationInvitePanel = () => {
+    if (!registrationInviteRequired) {
+      return null;
+    }
+
+    return (
+      <div className='mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4'>
+        <div className='mb-2'>
+          <Text strong>{t('邀请码')}</Text>
+        </div>
+        <div className='mb-3 text-sm text-amber-800'>
+          {t('注册前需要先激活邀请码')}
+        </div>
+        <div className='flex flex-col gap-3 sm:flex-row'>
+          <Input
+            value={inviteCode}
+            placeholder={t('请输入邀请码')}
+            onChange={(value) => setInviteCode(value)}
+          />
+          <Button
+            theme='solid'
+            type='primary'
+            onClick={activateInviteCode}
+            loading={inviteLoading}
+          >
+            {inviteLoading ? t('激活中...') : t('激活邀请码')}
+          </Button>
+        </div>
+        <div className='mt-3 text-sm'>
+          {inviteActivated ? (
+            <Text className='text-green-600'>
+              {t('邀请码已激活，有效期至：{{time}}', {
+                time: formatInviteActivationTime(inviteActivationExpiresAt),
+              })}
+            </Text>
+          ) : (
+            <Text className='text-amber-900'>
+              {t('邀请码激活后再继续注册或 OAuth')}
+            </Text>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderOAuthOptions = () => {
     return (
       <div className='flex flex-col items-center'>
@@ -400,6 +553,7 @@ const RegisterForm = () => {
               </Title>
             </div>
             <div className='px-2 py-8'>
+              {renderRegistrationInvitePanel()}
               <div className='space-y-3'>
                 {status.wechat_login && (
                   <Button
@@ -411,6 +565,7 @@ const RegisterForm = () => {
                     }
                     onClick={onWeChatLoginClicked}
                     loading={wechatLoading}
+                    disabled={!inviteGateReady}
                   >
                     <span className='ml-3'>{t('使用 微信 继续')}</span>
                   </Button>
@@ -424,7 +579,7 @@ const RegisterForm = () => {
                     icon={<IconGithubLogo size='large' />}
                     onClick={handleGitHubClick}
                     loading={githubLoading}
-                    disabled={githubButtonDisabled}
+                    disabled={!inviteGateReady || githubButtonDisabled}
                   >
                     <span className='ml-3'>{githubButtonText}</span>
                   </Button>
@@ -446,6 +601,7 @@ const RegisterForm = () => {
                     }
                     onClick={handleDiscordClick}
                     loading={discordLoading}
+                    disabled={!inviteGateReady}
                   >
                     <span className='ml-3'>{t('使用 Discord 继续')}</span>
                   </Button>
@@ -459,6 +615,7 @@ const RegisterForm = () => {
                     icon={<OIDCIcon style={{ color: '#1877F2' }} />}
                     onClick={handleOIDCClick}
                     loading={oidcLoading}
+                    disabled={!inviteGateReady}
                   >
                     <span className='ml-3'>{t('使用 OIDC 继续')}</span>
                   </Button>
@@ -480,6 +637,7 @@ const RegisterForm = () => {
                     }
                     onClick={handleLinuxDOClick}
                     loading={linuxdoLoading}
+                    disabled={!inviteGateReady}
                   >
                     <span className='ml-3'>{t('使用 LinuxDO 继续')}</span>
                   </Button>
@@ -495,6 +653,7 @@ const RegisterForm = () => {
                       icon={getOAuthProviderIcon(provider.icon || '', 20)}
                       onClick={() => handleCustomOAuthClick(provider)}
                       loading={customOAuthLoading[provider.slug]}
+                      disabled={!inviteGateReady}
                     >
                       <span className='ml-3'>
                         {t('使用 {{name}} 继续', { name: provider.name })}
@@ -503,7 +662,13 @@ const RegisterForm = () => {
                   ))}
 
                 {status.telegram_oauth && (
-                  <div className='flex justify-center my-2'>
+                  <div
+                    className='flex justify-center my-2'
+                    style={{
+                      opacity: inviteGateReady ? 1 : 0.5,
+                      pointerEvents: inviteGateReady ? 'auto' : 'none',
+                    }}
+                  >
                     <TelegramLoginButton
                       dataOnauth={onTelegramLoginClicked}
                       botName={status.telegram_bot_name}
@@ -522,6 +687,7 @@ const RegisterForm = () => {
                   icon={<IconMail size='large' />}
                   onClick={handleEmailRegisterClick}
                   loading={emailRegisterLoading}
+                  disabled={!inviteGateReady}
                 >
                   <span className='ml-3'>{t('使用 用户名 注册')}</span>
                 </Button>
@@ -563,6 +729,7 @@ const RegisterForm = () => {
               </Title>
             </div>
             <div className='px-2 py-8'>
+              {renderRegistrationInvitePanel()}
               <Form className='space-y-3'>
                 <Form.Input
                   field='username'
@@ -675,7 +842,8 @@ const RegisterForm = () => {
                     onClick={handleSubmit}
                     loading={registerLoading}
                     disabled={
-                      (hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms
+                      !inviteGateReady ||
+                      ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms)
                     }
                   >
                     {t('注册')}
