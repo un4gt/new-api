@@ -400,6 +400,16 @@ func (user *User) InsertWithTx(tx *gorm.DB) error {
 	if result.Error != nil {
 		return result.Error
 	}
+	if user.Id == 0 && user.Username != "" {
+		var createdUser User
+		if err := tx.Select("id").Where("username = ?", user.Username).First(&createdUser).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("created user not found after insert")
+			}
+			return err
+		}
+		user.Id = createdUser.Id
+	}
 
 	return nil
 }
