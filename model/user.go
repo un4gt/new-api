@@ -514,11 +514,36 @@ func (user *User) ClearBinding(bindingType string) error {
 	return updateUserCache(*user)
 }
 
+func (user *User) clearAccountBindingsTx(tx *gorm.DB) error {
+	if user.Id == 0 {
+		return errors.New("user id is empty")
+	}
+
+	if err := tx.Model(&User{}).Where("id = ?", user.Id).Updates(map[string]any{
+		"email":       "",
+		"github_id":   "",
+		"discord_id":  "",
+		"oidc_id":     "",
+		"wechat_id":   "",
+		"telegram_id": "",
+		"linux_do_id": "",
+	}).Error; err != nil {
+		return err
+	}
+
+	return tx.Where("user_id = ?", user.Id).Delete(&UserOAuthBinding{}).Error
+}
+
 func (user *User) Delete() error {
 	if user.Id == 0 {
 		return errors.New("id 为空！")
 	}
-	if err := DB.Delete(user).Error; err != nil {
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		if err := user.clearAccountBindingsTx(tx); err != nil {
+			return err
+		}
+		return tx.Delete(user).Error
+	}); err != nil {
 		return err
 	}
 
@@ -961,8 +986,21 @@ func GetUsernameById(id int, fromDB bool) (username string, err error) {
 
 func IsLinuxDOIdAlreadyTaken(linuxDOId string) bool {
 	var user User
-	err := DB.Unscoped().Where("linux_do_id = ?", linuxDOId).First(&user).Error
+	err := DB.Where("linux_do_id = ?", linuxDOId).First(&user).Error
 	return !errors.Is(err, gorm.ErrRecordNotFound)
+}
+
+func ReleaseDeletedLinuxDOBinding(linuxDOId string) error {
+	linuxDOId = strings.TrimSpace(linuxDOId)
+	if linuxDOId == "" {
+		return nil
+	}
+
+	return DB.Unscoped().
+		Model(&User{}).
+		Where("linux_do_id = ? AND deleted_at IS NOT NULL", linuxDOId).
+		Update("linux_do_id", "").
+		Error
 }
 
 func (user *User) FillUserByLinuxDOId() error {

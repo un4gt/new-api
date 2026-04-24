@@ -211,6 +211,9 @@ func findOrCreateOAuthUser(c *gin.Context, providerName string, provider oauth.P
 	if provider.IsUserIDTaken(oauthUser.ProviderUserID) {
 		err := provider.FillUserByProviderID(user, oauthUser.ProviderUserID)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, false, &OAuthUserDeletedError{}
+			}
 			return nil, false, err
 		}
 		// Check if user has been deleted
@@ -225,6 +228,9 @@ func findOrCreateOAuthUser(c *gin.Context, providerName string, provider oauth.P
 		if provider.IsUserIDTaken(legacyID) {
 			err := provider.FillUserByProviderID(user, legacyID)
 			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil, false, &OAuthUserDeletedError{}
+				}
 				return nil, false, err
 			}
 			if user.Id != 0 {
@@ -250,6 +256,11 @@ func findOrCreateOAuthUser(c *gin.Context, providerName string, provider oauth.P
 	if common.RegistrationInviteRequired {
 		activation, err = getRegistrationInviteActivation(c, session)
 		if err != nil {
+			return nil, false, err
+		}
+	}
+	if providerName == "linuxdo" {
+		if err := model.ReleaseDeletedLinuxDOBinding(oauthUser.ProviderUserID); err != nil {
 			return nil, false, err
 		}
 	}
