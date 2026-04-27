@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -28,10 +29,17 @@ var (
 	ErrRegistrationInviteRevoked           = errors.New("registration invite revoked")
 	ErrRegistrationInviteActivationExpired = errors.New("registration invite activation expired")
 	ErrRegistrationInviteNoteTooLong       = errors.New("registration invite note too long")
+	ErrRegistrationInviteCountInvalid      = errors.New("registration invite count invalid")
 )
+
+type RegistrationInviteWithCode struct {
+	Invite *RegistrationInvite `json:"invite"`
+	Code   string              `json:"invite_code"`
+}
 
 type RegistrationInvite struct {
 	Id                 int            `json:"id" gorm:"primaryKey"`
+	Code               string         `json:"code" gorm:"type:varchar(32);index"`
 	CodeHash           string         `json:"-" gorm:"type:char(64);uniqueIndex"`
 	Status             string         `json:"status" gorm:"type:varchar(16);not null;default:'active';index"`
 	Note               string         `json:"note" gorm:"type:varchar(255)"`
@@ -112,6 +120,10 @@ func (invite *RegistrationInvite) ValidateAvailable(now int64) error {
 }
 
 func CreateRegistrationInvite(createdBy int, note string, expiresAt int64, maxUses int) (*RegistrationInvite, string, error) {
+	return createRegistrationInviteWithDB(DB, createdBy, note, expiresAt, maxUses)
+}
+
+func createRegistrationInviteWithDB(db *gorm.DB, createdBy int, note string, expiresAt int64, maxUses int) (*RegistrationInvite, string, error) {
 	note = strings.TrimSpace(note)
 	if utf8.RuneCountInString(note) > RegistrationInviteNoteMaxSize {
 		return nil, "", ErrRegistrationInviteNoteTooLong
@@ -127,6 +139,7 @@ func CreateRegistrationInvite(createdBy int, note string, expiresAt int64, maxUs
 		}
 
 		invite := &RegistrationInvite{
+			Code:      code,
 			CodeHash:  hash,
 			Status:    common.RegistrationInviteStatusActive,
 			Note:      note,
@@ -134,7 +147,7 @@ func CreateRegistrationInvite(createdBy int, note string, expiresAt int64, maxUs
 			ExpiresAt: expiresAt,
 			MaxUses:   maxUses,
 		}
-		if err := DB.Create(invite).Error; err != nil {
+		if err := db.Create(invite).Error; err != nil {
 			lowerErr := strings.ToLower(err.Error())
 			if strings.Contains(lowerErr, "duplicate") || strings.Contains(lowerErr, "unique") {
 				continue
@@ -145,6 +158,29 @@ func CreateRegistrationInvite(createdBy int, note string, expiresAt int64, maxUs
 	}
 
 	return nil, "", fmt.Errorf("failed to generate unique registration invite code")
+}
+
+func CreateRegistrationInvites(createdBy int, note string, expiresAt int64, maxUses int, count int) ([]RegistrationInviteWithCode, error) {
+	if count <= 0 || count > 100 {
+		return nil, ErrRegistrationInviteCountInvalid
+	}
+
+	invites := make([]RegistrationInviteWithCode, 0, count)
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		for idx := 0; idx < count; idx++ {
+			invite, code, err := createRegistrationInviteWithDB(tx, createdBy, note, expiresAt, maxUses)
+			if err != nil {
+				return err
+			}
+			invites = append(invites, RegistrationInviteWithCode{
+				Invite: invite,
+				Code:   code,
+			})
+		}
+		return nil
+	})
+
+	return invites, err
 }
 
 func GetRegistrationInviteById(id int) (*RegistrationInvite, error) {
@@ -180,6 +216,39 @@ func GetRegistrationInviteByCode(code string) (*RegistrationInvite, error) {
 
 func GetRegistrationInvites(pageInfo *common.PageInfo) (invites []*RegistrationInvite, total int64, err error) {
 	query := DB.Model(&RegistrationInvite{})
+
+	err = query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	err = query.Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).Find(&invites).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return invites, total, nil
+}
+
+func SearchRegistrationInvites(keyword string, pageInfo *common.PageInfo) (invites []*RegistrationInvite, total int64, err error) {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return GetRegistrationInvites(pageInfo)
+	}
+
+	query := DB.Model(&RegistrationInvite{})
+	likeKeyword := "%" + keyword + "%"
+
+	if normalized := normalizeRegistrationInviteCode(keyword); normalized != "" {
+		codeHash := hashRegistrationInviteCode(normalized)
+		if id, convErr := strconv.Atoi(keyword); convErr == nil {
+			query = query.Where("id = ? OR code_hash = ? OR code LIKE ? OR note LIKE ? OR used_provider_user_id LIKE ?", id, codeHash, likeKeyword, likeKeyword, likeKeyword)
+		} else {
+			query = query.Where("code_hash = ? OR code LIKE ? OR note LIKE ? OR used_provider_user_id LIKE ?", codeHash, likeKeyword, likeKeyword, likeKeyword)
+		}
+	} else {
+		query = query.Where("code LIKE ? OR note LIKE ? OR used_provider_user_id LIKE ?", likeKeyword, likeKeyword, likeKeyword)
+	}
 
 	err = query.Count(&total).Error
 	if err != nil {

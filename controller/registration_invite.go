@@ -31,6 +31,7 @@ type createRegistrationInviteRequest struct {
 	Note      string `json:"note"`
 	ExpiresAt int64  `json:"expires_at"`
 	MaxUses   int    `json:"max_uses"`
+	Count     int    `json:"count"`
 }
 
 func readSessionInt(value any) (int, bool) {
@@ -147,6 +148,8 @@ func writeRegistrationInviteError(c *gin.Context, session sessions.Session, err 
 		common.ApiErrorI18n(c, i18n.MsgRegistrationInviteActivationExpired)
 	case errors.Is(err, model.ErrRegistrationInviteNoteTooLong):
 		common.ApiErrorI18n(c, i18n.MsgRegistrationInviteNoteTooLong)
+	case errors.Is(err, model.ErrRegistrationInviteCountInvalid):
+		common.ApiErrorI18n(c, i18n.MsgRegistrationInviteCountInvalid)
 	default:
 		common.ApiError(c, err)
 	}
@@ -240,7 +243,15 @@ func GetRegistrationInviteActivationStatus(c *gin.Context) {
 
 func GetRegistrationInvites(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-	invites, total, err := model.GetRegistrationInvites(pageInfo)
+	keyword := strings.TrimSpace(c.Query("keyword"))
+	var invites []*model.RegistrationInvite
+	var total int64
+	var err error
+	if keyword == "" {
+		invites, total, err = model.GetRegistrationInvites(pageInfo)
+	} else {
+		invites, total, err = model.SearchRegistrationInvites(keyword, pageInfo)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -263,19 +274,35 @@ func CreateRegistrationInvite(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	if req.Count == 0 {
+		req.Count = 1
+	}
 
-	invite, code, err := model.CreateRegistrationInvite(c.GetInt("id"), req.Note, req.ExpiresAt, req.MaxUses)
+	invites, err := model.CreateRegistrationInvites(c.GetInt("id"), req.Note, req.ExpiresAt, req.MaxUses, req.Count)
 	if err != nil {
 		writeRegistrationInviteError(c, sessions.Default(c), err)
 		return
+	}
+
+	inviteCodes := make([]string, 0, len(invites))
+	var firstInvite *model.RegistrationInvite
+	var firstCode string
+	for idx, item := range invites {
+		inviteCodes = append(inviteCodes, item.Code)
+		if idx == 0 {
+			firstInvite = item.Invite
+			firstCode = item.Code
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 		"data": gin.H{
-			"invite":      invite,
-			"invite_code": code,
+			"invite":       firstInvite,
+			"invite_code":  firstCode,
+			"invites":      invites,
+			"invite_codes": inviteCodes,
 		},
 	})
 }

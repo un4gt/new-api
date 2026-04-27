@@ -60,6 +60,7 @@ registration_invite.revoked: "邀请码已被撤销"
 registration_invite.activated: "邀请码已激活"
 registration_invite.activation_expired: "邀请码激活状态已过期，请重新激活"
 registration_invite.note_too_long: "邀请码备注过长"
+registration_invite.count_invalid: "一次邀请码批量生成的个数必须在 1-100 之间"
 
 # User messages
 user.password_login_disabled: "管理员关闭了密码登录"

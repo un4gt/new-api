@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -64,6 +65,11 @@ func GetAllRedemptions(startIdx int, num int) (redemptions []*Redemption, total 
 }
 
 func SearchRedemptions(keyword string, startIdx int, num int) (redemptions []*Redemption, total int64, err error) {
+	keyword = strings.TrimSpace(keyword)
+	if keyword == "" {
+		return GetAllRedemptions(startIdx, num)
+	}
+
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return nil, 0, tx.Error
@@ -76,12 +82,21 @@ func SearchRedemptions(keyword string, startIdx int, num int) (redemptions []*Re
 
 	// Build query based on keyword type
 	query := tx.Model(&Redemption{})
+	likeKeyword := "%" + keyword + "%"
+	keyCol := commonKeyCol
+	if keyCol == "" {
+		if common.UsingPostgreSQL {
+			keyCol = `"key"`
+		} else {
+			keyCol = "`key`"
+		}
+	}
 
 	// Only try to convert to ID if the string represents a valid integer
 	if id, err := strconv.Atoi(keyword); err == nil {
-		query = query.Where("id = ? OR name LIKE ?", id, keyword+"%")
+		query = query.Where("id = ? OR name LIKE ? OR "+keyCol+" LIKE ?", id, likeKeyword, likeKeyword)
 	} else {
-		query = query.Where("name LIKE ?", keyword+"%")
+		query = query.Where("name LIKE ? OR "+keyCol+" LIKE ?", likeKeyword, likeKeyword)
 	}
 
 	// Get total count

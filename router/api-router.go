@@ -53,6 +53,7 @@ func SetApiRouter(router *gin.Engine) {
 			rootRegistrationInviteRoute.Use(middleware.RootAuth())
 			{
 				rootRegistrationInviteRoute.GET("/", controller.GetRegistrationInvites)
+				rootRegistrationInviteRoute.GET("/search", controller.GetRegistrationInvites)
 				rootRegistrationInviteRoute.POST("/", controller.CreateRegistrationInvite)
 				rootRegistrationInviteRoute.POST("/:id/revoke", controller.RevokeRegistrationInvite)
 			}

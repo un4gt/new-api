@@ -60,6 +60,7 @@ registration_invite.revoked: "邀請碼已被撤銷"
 registration_invite.activated: "邀請碼已啟用"
 registration_invite.activation_expired: "邀請碼啟用狀態已過期，請重新啟用"
 registration_invite.note_too_long: "邀請碼備註過長"
+registration_invite.count_invalid: "一次邀請碼批量生成的個數必須在 1-100 之間"
 
 # User messages
 user.password_login_disabled: "管理員關閉了密碼登錄"

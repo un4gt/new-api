@@ -69,6 +69,7 @@ const (
 	MsgRegistrationInviteActivated         = "registration_invite.activated"
 	MsgRegistrationInviteActivationExpired = "registration_invite.activation_expired"
 	MsgRegistrationInviteNoteTooLong       = "registration_invite.note_too_long"
+	MsgRegistrationInviteCountInvalid      = "registration_invite.count_invalid"
 )
 
 // User related messages

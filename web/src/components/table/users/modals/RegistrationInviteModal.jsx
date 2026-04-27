@@ -18,7 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { API, showError, showSuccess, timestamp2string } from '../../../../helpers';
+import {
+  API,
+  copy,
+  downloadTextAsFile,
+  showError,
+  showSuccess,
+  timestamp2string,
+} from '../../../../helpers';
 import { useIsMobile } from '../../../../hooks/common/useIsMobile';
 import {
   Avatar,
@@ -26,6 +33,7 @@ import {
   Card,
   Empty,
   Form,
+  Input,
   Row,
   Col,
   SideSheet,
@@ -38,12 +46,15 @@ import {
 import {
   IconClose,
   IconCopy,
+  IconDownload,
   IconRefresh,
   IconSave,
   IconSafe,
+  IconSearch,
 } from '@douyinfe/semi-icons';
 
 const { Text, Title } = Typography;
+const DEFAULT_PAGE_SIZE = 20;
 
 const RegistrationInviteModal = ({ visible, handleClose, t }) => {
   const formApiRef = useRef(null);
@@ -52,20 +63,39 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
   const [creating, setCreating] = useState(false);
   const [revokingId, setRevokingId] = useState(null);
   const [invites, setInvites] = useState([]);
-  const [createdInviteCode, setCreatedInviteCode] = useState('');
+  const [createdInviteCodes, setCreatedInviteCodes] = useState([]);
+  const [searchKeyword, setSearchKeyword] = useState('');
+  const [activePage, setActivePage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [inviteCount, setInviteCount] = useState(0);
 
   const getInitValues = () => ({
     note: '',
     expires_at: null,
+    count: 1,
   });
 
-  const loadInvites = async () => {
+  const loadInvites = async (
+    page = 1,
+    size = DEFAULT_PAGE_SIZE,
+    keywordOverride,
+  ) => {
     setLoading(true);
     try {
-      const res = await API.get('/api/registration-invite/?p=1&page_size=20');
+      const keyword = (keywordOverride ?? searchKeyword).trim();
+      const params = new URLSearchParams({
+        p: String(page),
+        page_size: String(size),
+      });
+      if (keyword) {
+        params.set('keyword', keyword);
+      }
+      const res = await API.get(`/api/registration-invite/?${params}`);
       const { success, message, data } = res.data;
       if (success) {
         setInvites(data.items || []);
+        setActivePage(data.page <= 0 ? 1 : data.page);
+        setInviteCount(data.total || 0);
       } else {
         showError(message);
       }
@@ -80,27 +110,35 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
     if (!visible) {
       return;
     }
-    setCreatedInviteCode('');
-    loadInvites();
+    setCreatedInviteCodes([]);
+    setActivePage(1);
+    setPageSize(DEFAULT_PAGE_SIZE);
+    setInviteCount(0);
+    setSearchKeyword('');
+    loadInvites(1, DEFAULT_PAGE_SIZE, '');
     formApiRef.current?.setValues(getInitValues());
   }, [visible]);
 
   const submit = async (values) => {
     setCreating(true);
     try {
+      const count = parseInt(values.count, 10) || 0;
       const payload = {
         note: values.note || '',
         expires_at: values.expires_at
           ? Math.floor(values.expires_at.getTime() / 1000)
           : 0,
+        count,
       };
       const res = await API.post('/api/registration-invite/', payload);
       const { success, message, data } = res.data;
       if (success) {
-        setCreatedInviteCode(data.invite_code || '');
+        const inviteCodes =
+          data.invite_codes || (data.invite_code ? [data.invite_code] : []);
+        setCreatedInviteCodes(inviteCodes);
         formApiRef.current?.setValues(getInitValues());
         showSuccess(t('邀请码创建成功'));
-        loadInvites();
+        loadInvites(1, pageSize);
       } else {
         showError(message);
       }
@@ -111,14 +149,38 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
     }
   };
 
-  const copyInviteCode = async (code) => {
-    if (!code) {
+  const searchInvites = () => {
+    setActivePage(1);
+    loadInvites(1, pageSize, searchKeyword);
+  };
+
+  const resetSearch = () => {
+    setSearchKeyword('');
+    setActivePage(1);
+    loadInvites(1, pageSize, '');
+  };
+
+  const handlePageChange = (page) => {
+    setActivePage(page);
+    loadInvites(page, pageSize);
+  };
+
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setActivePage(1);
+    loadInvites(1, size);
+  };
+
+  const copyInviteCodes = async (codes) => {
+    const text = Array.isArray(codes)
+      ? codes.filter(Boolean).join('\n')
+      : codes;
+    if (!text) {
       return;
     }
-    try {
-      await navigator.clipboard.writeText(code);
+    if (await copy(text)) {
       showSuccess(t('邀请码已复制到剪贴板'));
-    } catch (error) {
+    } else {
       showError(t('复制失败，请手动复制'));
     }
   };
@@ -130,7 +192,7 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
       const { success, message } = res.data;
       if (success) {
         showSuccess(t('邀请码已撤销'));
-        loadInvites();
+        loadInvites(activePage, pageSize);
       } else {
         showError(message);
       }
@@ -148,11 +210,19 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
     if (record.status === 'revoked') {
       return <Tag color='grey'>{t('已撤销')}</Tag>;
     }
-    if (record.expires_at !== 0 && record.expires_at < Math.floor(Date.now() / 1000)) {
+    if (
+      record.expires_at !== 0 &&
+      record.expires_at < Math.floor(Date.now() / 1000)
+    ) {
       return <Tag color='orange'>{t('已过期')}</Tag>;
     }
     return <Tag color='green'>{t('可用')}</Tag>;
   };
+
+  const createdInviteText = useMemo(
+    () => createdInviteCodes.filter(Boolean).join('\n'),
+    [createdInviteCodes],
+  );
 
   const columns = useMemo(
     () => [
@@ -168,9 +238,46 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
         render: (text, record) => renderStatus(record),
       },
       {
+        title: t('邀请码'),
+        dataIndex: 'code',
+        width: 220,
+        render: (text) =>
+          text ? (
+            <Text copyable={{ content: text }} className='font-mono'>
+              {text}
+            </Text>
+          ) : (
+            <Text type='tertiary'>{t('无')}</Text>
+          ),
+      },
+      {
         title: t('备注'),
         dataIndex: 'note',
         render: (text) => text || t('无'),
+      },
+      {
+        title: t('使用次数'),
+        dataIndex: 'use_count',
+        width: 120,
+        render: (text, record) => `${text || 0}/${record.max_uses || 1}`,
+      },
+      {
+        title: t('使用人ID'),
+        dataIndex: 'used_by',
+        width: 110,
+        render: (text) => (text ? text : t('无')),
+      },
+      {
+        title: t('使用方式'),
+        dataIndex: 'used_provider',
+        width: 110,
+        render: (text) => text || t('无'),
+      },
+      {
+        title: t('最后使用时间'),
+        dataIndex: 'used_at',
+        width: 180,
+        render: (text) => (text ? timestamp2string(text) : t('无')),
       },
       {
         title: t('创建时间'),
@@ -208,7 +315,7 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
         },
       },
     ],
-    [revokingId, t],
+    [activePage, pageSize, revokingId, searchKeyword, t],
   );
 
   return (
@@ -243,7 +350,7 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
             <Button
               theme='light'
               type='primary'
-              onClick={loadInvites}
+              onClick={() => loadInvites(activePage, pageSize)}
               icon={<IconRefresh />}
               loading={loading}
             >
@@ -274,16 +381,18 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
             formApiRef.current?.scrollToError();
           }}
         >
-          <div className='p-2 space-y-3'>
+          <div className='p-2 pb-0'>
             <Card className='!rounded-2xl shadow-sm border-0'>
               <div className='flex items-center mb-2'>
                 <Avatar size='small' color='orange' className='mr-2 shadow-md'>
                   <IconSafe size={16} />
                 </Avatar>
                 <div>
-                  <Text className='text-lg font-medium'>{t('创建新邀请码')}</Text>
+                  <Text className='text-lg font-medium'>
+                    {t('创建新邀请码')}
+                  </Text>
                   <div className='text-xs text-gray-600'>
-                    {t('邀请码只展示一次，请立即复制保存')}
+                    {t('创建后可在列表查看邀请码和使用状态')}
                   </div>
                 </div>
               </div>
@@ -297,7 +406,7 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
                     showClear
                   />
                 </Col>
-                <Col span={24}>
+                <Col span={isMobile ? 24 : 12}>
                   <Form.DatePicker
                     field='expires_at'
                     label={t('过期时间')}
@@ -307,54 +416,135 @@ const RegistrationInviteModal = ({ visible, handleClose, t }) => {
                     style={{ width: '100%' }}
                   />
                 </Col>
+                <Col span={isMobile ? 24 : 12}>
+                  <Form.InputNumber
+                    field='count'
+                    label={t('生成数量')}
+                    min={1}
+                    max={100}
+                    rules={[
+                      { required: true, message: t('请输入生成数量') },
+                      {
+                        validator: (rule, v) => {
+                          const num = parseInt(v, 10);
+                          return num > 0 && num <= 100
+                            ? Promise.resolve()
+                            : Promise.reject(t('一次最多生成100个邀请码'));
+                        },
+                      },
+                    ]}
+                    style={{ width: '100%' }}
+                  />
+                </Col>
               </Row>
 
-              {createdInviteCode && (
+              {createdInviteText && (
                 <div className='mt-4 rounded-2xl border border-green-200 bg-green-50 p-4'>
                   <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
                     <div>
-                      <div className='text-sm text-green-800'>{t('新邀请码')}</div>
-                      <div className='mt-1 font-mono text-base text-green-900 break-all'>
-                        {createdInviteCode}
+                      <div className='text-sm text-green-800'>
+                        {createdInviteCodes.length > 1
+                          ? t('新邀请码列表')
+                          : t('新邀请码')}
+                      </div>
+                      <div className='mt-1 max-h-40 overflow-auto whitespace-pre-wrap font-mono text-base text-green-900 break-all'>
+                        {createdInviteText}
                       </div>
                     </div>
-                    <Button
-                      theme='solid'
-                      type='primary'
-                      icon={<IconCopy />}
-                      onClick={() => copyInviteCode(createdInviteCode)}
-                    >
-                      {t('复制邀请码')}
-                    </Button>
+                    <Space>
+                      <Button
+                        theme='solid'
+                        type='primary'
+                        icon={<IconCopy />}
+                        onClick={() => copyInviteCodes(createdInviteCodes)}
+                      >
+                        {createdInviteCodes.length > 1
+                          ? t('复制全部')
+                          : t('复制邀请码')}
+                      </Button>
+                      {createdInviteCodes.length > 1 && (
+                        <Button
+                          theme='light'
+                          type='primary'
+                          icon={<IconDownload />}
+                          onClick={() =>
+                            downloadTextAsFile(
+                              createdInviteText,
+                              'registration-invites.txt',
+                            )
+                          }
+                        >
+                          {t('下载')}
+                        </Button>
+                      )}
+                    </Space>
                   </div>
                 </div>
-              )}
-            </Card>
-
-            <Card className='!rounded-2xl shadow-sm border-0'>
-              <div className='flex items-center justify-between mb-3'>
-                <div>
-                  <Text className='text-lg font-medium'>{t('最近邀请码')}</Text>
-                  <div className='text-xs text-gray-600'>
-                    {t('只展示最近 20 条邀请码记录')}
-                  </div>
-                </div>
-              </div>
-
-              {invites.length === 0 ? (
-                <Empty description={t('暂无邀请码')} />
-              ) : (
-                <Table
-                  dataSource={invites}
-                  columns={columns}
-                  pagination={false}
-                  size='small'
-                  rowKey='id'
-                />
               )}
             </Card>
           </div>
         </Form>
+        <div className='p-2'>
+          <Card className='!rounded-2xl shadow-sm border-0'>
+            <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-3'>
+              <div>
+                <Text className='text-lg font-medium'>{t('邀请码列表')}</Text>
+                <div className='text-xs text-gray-600'>
+                  {t('可按 ID、备注或邀请码值搜索')}
+                </div>
+              </div>
+              <div className='flex flex-col md:flex-row gap-2 w-full md:w-auto'>
+                <Input
+                  value={searchKeyword}
+                  onChange={(value) => setSearchKeyword(value)}
+                  onEnterPress={searchInvites}
+                  prefix={<IconSearch />}
+                  placeholder={t('关键字(id、备注或邀请码)')}
+                  showClear
+                  size='small'
+                  className='w-full md:w-64'
+                />
+                <Space>
+                  <Button
+                    type='tertiary'
+                    onClick={searchInvites}
+                    loading={loading}
+                    size='small'
+                  >
+                    {t('查询')}
+                  </Button>
+                  <Button type='tertiary' onClick={resetSearch} size='small'>
+                    {t('重置')}
+                  </Button>
+                </Space>
+              </div>
+            </div>
+
+            {invites.length === 0 ? (
+              <Empty description={t('暂无邀请码')} />
+            ) : (
+              <Table
+                dataSource={invites}
+                columns={columns}
+                pagination={{
+                  currentPage: activePage,
+                  pageSize: pageSize,
+                  total: inviteCount,
+                  showSizeChanger: true,
+                  pageSizeOptions: [10, 20, 50, 100],
+                  onChange: (page) => handlePageChange(page),
+                  onPageChange: handlePageChange,
+                  onShowSizeChange: (current, size) =>
+                    handlePageSizeChange(size),
+                  onPageSizeChange: handlePageSizeChange,
+                }}
+                size='small'
+                rowKey='id'
+                scroll={{ x: 'max-content' }}
+              />
+            )}
+          </Card>
+        </div>
       </Spin>
     </SideSheet>
   );

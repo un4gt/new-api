@@ -59,6 +59,7 @@ registration_invite.revoked: "Invite code has been revoked"
 registration_invite.activated: "Invite code activated"
 registration_invite.activation_expired: "Invite activation has expired, please activate again"
 registration_invite.note_too_long: "Invite note is too long"
+registration_invite.count_invalid: "Invite code batch count must be between 1 and 100"
 
 # User messages
 user.password_login_disabled: "Password login has been disabled by administrator"
