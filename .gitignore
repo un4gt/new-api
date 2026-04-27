@@ -58,3 +58,4 @@ docker-compose.local.yml
 docker-compose.local.yaml
 compose.override.yml
 compose.override.yaml
+.codex
