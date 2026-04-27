@@ -40,6 +40,7 @@ type ChannelOtherSettings struct {
 	UpstreamModelUpdateLastDetectedModels []string      `json:"upstream_model_update_last_detected_models,omitempty"` // 上次检测到的可加入模型
 	UpstreamModelUpdateLastRemovedModels  []string      `json:"upstream_model_update_last_removed_models,omitempty"`  // 上次检测到的可删除模型
 	UpstreamModelUpdateIgnoredModels      []string      `json:"upstream_model_update_ignored_models,omitempty"`       // 手动忽略的模型
+	CustomBalanceScript                   string        `json:"custom_balance_script,omitempty"`                      // 自定义余额查询 Lua 脚本
 }
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {

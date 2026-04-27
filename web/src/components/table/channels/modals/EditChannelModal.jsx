@@ -84,6 +84,7 @@ import {
   IconGlobe,
   IconChevronUp,
   IconChevronDown,
+  IconPlay,
 } from '@douyinfe/semi-icons';
 
 const { Text, Title } = Typography;
@@ -103,6 +104,21 @@ const REGION_EXAMPLE = {
   'claude-3-5-sonnet-20240620': 'europe-west1',
 };
 const UPSTREAM_DETECTED_MODEL_PREVIEW_LIMIT = 8;
+
+const CUSTOM_BALANCE_SCRIPT_TEMPLATE = `request = {
+  url = base_url .. "/user/info",
+  method = "GET",
+  headers = {
+    Authorization = "Bearer " .. apikey
+  }
+}
+
+function extractor(response)
+  return {
+    remaining = response.user.normal_balance / 1000000,
+    unit = "USD"
+  }
+end`;
 
 const PARAM_OVERRIDE_LEGACY_TEMPLATE = {
   temperature: 0,
@@ -195,6 +211,7 @@ const EditChannelModal = (props) => {
     upstream_model_update_last_check_time: 0,
     upstream_model_update_last_detected_models: [],
     upstream_model_update_ignored_models: '',
+    custom_balance_script: '',
   };
   const [batch, setBatch] = useState(false);
   const [multiToSingle, setMultiToSingle] = useState(false);
@@ -203,6 +220,7 @@ const EditChannelModal = (props) => {
   const [inputs, setInputs] = useState(originInputs);
   const [originModelOptions, setOriginModelOptions] = useState([]);
   const [modelOptions, setModelOptions] = useState([]);
+  const [testingBalanceScript, setTestingBalanceScript] = useState(false);
   const [groupOptions, setGroupOptions] = useState([]);
   const [basicModels, setBasicModels] = useState([]);
   const [fullModels, setFullModels] = useState([]);
@@ -519,9 +537,6 @@ const EditChannelModal = (props) => {
   };
 
   const handleChannelOtherSettingsChange = (key, value) => {
-    // 更新内部状态
-    setChannelSettings((prev) => ({ ...prev, [key]: value }));
-
     // 同步更新到表单字段
     if (formApiRef.current) {
       formApiRef.current.setValue(key, value);
@@ -854,6 +869,8 @@ const EditChannelModal = (props) => {
           )
             ? parsedSettings.upstream_model_update_ignored_models.join(',')
             : '';
+          data.custom_balance_script =
+            parsedSettings.custom_balance_script || '';
         } catch (error) {
           console.error('解析其他设置失败:', error);
           data.azure_responses_version = '';
@@ -869,6 +886,7 @@ const EditChannelModal = (props) => {
           data.upstream_model_update_last_check_time = 0;
           data.upstream_model_update_last_detected_models = [];
           data.upstream_model_update_ignored_models = '';
+          data.custom_balance_script = '';
         }
       } else {
         // 兼容历史数据：老渠道没有 settings 时，默认按 json 展示
@@ -883,6 +901,7 @@ const EditChannelModal = (props) => {
         data.upstream_model_update_last_check_time = 0;
         data.upstream_model_update_last_detected_models = [];
         data.upstream_model_update_ignored_models = '';
+        data.custom_balance_script = '';
       }
 
       if (
@@ -1095,6 +1114,47 @@ const EditChannelModal = (props) => {
       }
     } catch (error) {
       // ignore
+    }
+  };
+
+  const handleUseBalanceScriptTemplate = () => {
+    handleChannelOtherSettingsChange(
+      'custom_balance_script',
+      CUSTOM_BALANCE_SCRIPT_TEMPLATE,
+    );
+  };
+
+  const handleTestBalanceScript = async () => {
+    if (!isEdit) {
+      showInfo(t('请先保存渠道后再测试余额脚本'));
+      return;
+    }
+    const script = String(inputs.custom_balance_script || '').trim();
+    if (!script) {
+      showInfo(t('请先填写自定义余额查询脚本'));
+      return;
+    }
+    setTestingBalanceScript(true);
+    try {
+      const res = await API.post(
+        `/api/channel/test_balance_script/${channelId}`,
+        { script },
+        { skipErrorHandler: true },
+      );
+      if (res?.data?.success) {
+        const balance =
+          typeof res.data.balance === 'number'
+            ? res.data.balance.toFixed(4)
+            : res.data.balance;
+        const unit = res.data.data?.unit || 'USD';
+        showSuccess(t('余额脚本测试成功：{{balance}} {{unit}}', { balance, unit }));
+      } else {
+        showError(res?.data?.message || t('余额脚本测试失败'));
+      }
+    } catch (error) {
+      showError(error.message || t('余额脚本测试失败'));
+    } finally {
+      setTestingBalanceScript(false);
     }
   };
 
@@ -1625,6 +1685,12 @@ const EditChannelModal = (props) => {
     if (typeof settings.upstream_model_update_last_check_time !== 'number') {
       settings.upstream_model_update_last_check_time = 0;
     }
+    settings.custom_balance_script = String(
+      localInputs.custom_balance_script || '',
+    ).trim();
+    if (!settings.custom_balance_script) {
+      delete settings.custom_balance_script;
+    }
 
     localInputs.settings = JSON.stringify(settings);
 
@@ -1648,6 +1714,7 @@ const EditChannelModal = (props) => {
     delete localInputs.upstream_model_update_last_check_time;
     delete localInputs.upstream_model_update_last_detected_models;
     delete localInputs.upstream_model_update_ignored_models;
+    delete localInputs.custom_balance_script;
 
     let res;
     localInputs.auto_ban = localInputs.auto_ban ? 1 : 0;
@@ -3499,6 +3566,49 @@ const EditChannelModal = (props) => {
                       showClear
                       extraText={t('用于配置网络代理，支持 socks5 协议')}
                     />
+
+                    <div className='mt-4'>
+                      <div className='flex items-center justify-between gap-2 mb-2'>
+                        <Text className='text-sm font-medium'>
+                          {t('自定义余额查询 Lua 脚本')}
+                        </Text>
+                        <Space>
+                          <Button
+                            size='small'
+                            type='tertiary'
+                            onClick={handleUseBalanceScriptTemplate}
+                          >
+                            {t('填入模板')}
+                          </Button>
+                          <Button
+                            size='small'
+                            theme='light'
+                            type='primary'
+                            icon={<IconPlay />}
+                            loading={testingBalanceScript}
+                            disabled={!isEdit}
+                            onClick={handleTestBalanceScript}
+                          >
+                            {t('测试脚本')}
+                          </Button>
+                        </Space>
+                      </div>
+                      <Form.TextArea
+                        field='custom_balance_script'
+                        placeholder={CUSTOM_BALANCE_SCRIPT_TEMPLATE}
+                        onChange={(value) =>
+                          handleChannelOtherSettingsChange(
+                            'custom_balance_script',
+                            value,
+                          )
+                        }
+                        autosize={{ minRows: 10, maxRows: 18 }}
+                        showClear
+                        extraText={t(
+                          '配置后更新余额将优先执行此脚本；base_url 与 apikey 会自动注入。',
+                        )}
+                      />
+                    </div>
 
                     <Form.TextArea
                       field='system_prompt'

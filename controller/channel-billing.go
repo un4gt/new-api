@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/service/channelbalance"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -396,7 +398,41 @@ func updateChannelMoonshotBalance(channel *model.Channel) (float64, error) {
 	return availableBalanceUsd, nil
 }
 
+func customBalanceToUSD(result channelbalance.Result) (float64, error) {
+	unit := strings.ToUpper(strings.TrimSpace(result.Unit))
+	if unit == "" {
+		unit = "USD"
+	}
+	switch unit {
+	case "USD":
+		return result.Remaining, nil
+	case "CNY":
+		if operation_setting.Price <= 0 {
+			return 0, errors.New("美元汇率配置无效")
+		}
+		return decimal.NewFromFloat(result.Remaining).Div(decimal.NewFromFloat(operation_setting.Price)).InexactFloat64(), nil
+	default:
+		return 0, fmt.Errorf("自定义余额查询暂不支持单位: %s", result.Unit)
+	}
+}
+
+func updateChannelCustomBalance(channel *model.Channel, script string) (float64, error) {
+	result, err := channelbalance.QueryChannelBalance(context.Background(), channel, script)
+	if err != nil {
+		return 0, err
+	}
+	balance, err := customBalanceToUSD(result)
+	if err != nil {
+		return 0, err
+	}
+	channel.UpdateBalance(balance)
+	return balance, nil
+}
+
 func updateChannelBalance(channel *model.Channel) (float64, error) {
+	if script := strings.TrimSpace(channel.GetOtherSettings().CustomBalanceScript); script != "" {
+		return updateChannelCustomBalance(channel, script)
+	}
 	baseURL := constant.ChannelBaseURLs[channel.Type]
 	if channel.GetBaseURL() == "" {
 		channel.BaseURL = &baseURL
@@ -490,6 +526,51 @@ func UpdateChannelBalance(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"balance": balance,
+	})
+}
+
+type testChannelBalanceScriptRequest struct {
+	Script string `json:"script"`
+}
+
+func TestChannelBalanceScript(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req := testChannelBalanceScriptRequest{}
+	if err = c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	channel, err := model.CacheGetChannel(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if channel.ChannelInfo.IsMultiKey {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "多密钥渠道不支持余额查询",
+		})
+		return
+	}
+	result, err := channelbalance.QueryChannelBalance(c.Request.Context(), channel, req.Script)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	balance, err := customBalanceToUSD(result)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"balance": balance,
+		"data":    result,
 	})
 }
 
