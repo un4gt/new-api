@@ -17,6 +17,7 @@ import (
 const (
 	registrationInviteCodeLength  = 24
 	registrationInviteCodeGroup   = 4
+	registrationInviteCodePrefix  = "ri-"
 	RegistrationInviteNoteMaxSize = 255
 )
 
@@ -74,10 +75,11 @@ func hashRegistrationInviteCode(code string) string {
 func formatRegistrationInviteCode(code string) string {
 	normalized := normalizeRegistrationInviteCode(code)
 	if len(normalized) <= registrationInviteCodeGroup {
-		return normalized
+		return registrationInviteCodePrefix + normalized
 	}
 
 	var builder strings.Builder
+	builder.WriteString(registrationInviteCodePrefix)
 	for idx, ch := range normalized {
 		if idx > 0 && idx%registrationInviteCodeGroup == 0 {
 			builder.WriteByte('-')
