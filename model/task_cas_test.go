@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 	}
 	sqlDB.SetMaxOpenConns(1)
 
-	if err := db.AutoMigrate(&Task{}, &User{}, &Token{}, &Log{}, &Channel{}, &Redemption{}, &RegistrationInvite{}); err != nil {
+	if err := db.AutoMigrate(&Task{}, &User{}, &Token{}, &Log{}, &Channel{}, &Redemption{}, &RegistrationInvite{}, &TopUp{}, &Checkin{}); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
 
@@ -53,6 +53,8 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM channels")
 		DB.Exec("DELETE FROM redemptions")
 		DB.Exec("DELETE FROM registration_invites")
+		DB.Exec("DELETE FROM top_ups")
+		DB.Exec("DELETE FROM checkins")
 	})
 }
 

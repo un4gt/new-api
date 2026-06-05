@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -16,7 +18,7 @@ import (
 func GetCheckinStatus(c *gin.Context) {
 	setting := operation_setting.GetCheckinSetting()
 	if !setting.Enabled {
-		common.ApiErrorMsg(c, "签到功能未启用")
+		common.ApiErrorI18n(c, i18n.MsgCheckinDisabled)
 		return
 	}
 	userId := c.GetInt("id")
@@ -47,7 +49,7 @@ func GetCheckinStatus(c *gin.Context) {
 func DoCheckin(c *gin.Context) {
 	setting := operation_setting.GetCheckinSetting()
 	if !setting.Enabled {
-		common.ApiErrorMsg(c, "签到功能未启用")
+		common.ApiErrorI18n(c, i18n.MsgCheckinDisabled)
 		return
 	}
 
@@ -55,10 +57,7 @@ func DoCheckin(c *gin.Context) {
 
 	checkin, err := model.UserCheckin(userId)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
+		writeCheckinError(c, err)
 		return
 	}
 	model.RecordLog(userId, model.LogTypeSystem, fmt.Sprintf("用户签到，获得额度 %s", logger.LogQuota(checkin.QuotaAwarded)))
@@ -69,4 +68,19 @@ func DoCheckin(c *gin.Context) {
 			"quota_awarded": checkin.QuotaAwarded,
 			"checkin_date":  checkin.CheckinDate},
 	})
+}
+
+func writeCheckinError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, model.ErrCheckinDisabled):
+		common.ApiErrorI18n(c, i18n.MsgCheckinDisabled)
+	case errors.Is(err, model.ErrCheckinAlreadyToday):
+		common.ApiErrorI18n(c, i18n.MsgCheckinAlreadyToday)
+	case errors.Is(err, model.ErrCheckinQuotaFailed):
+		common.ApiErrorI18n(c, i18n.MsgCheckinQuotaFailed)
+	case errors.Is(err, model.ErrCheckinFailed):
+		common.ApiErrorI18n(c, i18n.MsgCheckinFailed)
+	default:
+		common.ApiError(c, err)
+	}
 }

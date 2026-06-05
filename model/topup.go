@@ -3,12 +3,22 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+)
+
+var (
+	ErrTopUpNotProvided   = errors.New("topup.not_provided")
+	ErrTopUpOrderNotFound = errors.New("topup.order_not_exists")
+	ErrTopUpOrderStatus   = errors.New("topup.order_status")
+	ErrTopUpInvalidQuota  = errors.New("topup.invalid_quota")
+	ErrTopUpFailed        = errors.New("topup.failed")
 )
 
 type TopUp struct {
@@ -56,8 +66,9 @@ func GetTopUpByTradeNo(tradeNo string) *TopUp {
 }
 
 func Recharge(referenceId string, customerId string) (err error) {
+	referenceId = strings.TrimSpace(referenceId)
 	if referenceId == "" {
-		return errors.New("未提供支付单号")
+		return ErrTopUpNotProvided
 	}
 
 	var quota float64
@@ -69,34 +80,51 @@ func Recharge(referenceId string, customerId string) (err error) {
 	}
 
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", referenceId).First(topUp).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(refCol+" = ?", referenceId).First(topUp).Error
 		if err != nil {
-			return errors.New("充值订单不存在")
+			if isRecordNotFound(err) {
+				return ErrTopUpOrderNotFound
+			}
+			common.SysError("topup query failed: " + err.Error())
+			return fmt.Errorf("%w: query order", ErrTopUpFailed)
 		}
 
 		if topUp.Status != common.TopUpStatusPending {
-			return errors.New("充值订单状态错误")
+			return ErrTopUpOrderStatus
+		}
+
+		quota = topUp.Money * common.QuotaPerUnit
+		if quota <= 0 {
+			return ErrTopUpInvalidQuota
 		}
 
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		err = tx.Save(topUp).Error
 		if err != nil {
-			return err
+			common.SysError("topup save failed: " + err.Error())
+			return fmt.Errorf("%w: save order", ErrTopUpFailed)
 		}
 
-		quota = topUp.Money * common.QuotaPerUnit
 		err = tx.Model(&User{}).Where("id = ?", topUp.UserId).Updates(map[string]interface{}{"stripe_customer": customerId, "quota": gorm.Expr("quota + ?", quota)}).Error
 		if err != nil {
-			return err
+			common.SysError("topup quota update failed: " + err.Error())
+			return fmt.Errorf("%w: update user quota", ErrTopUpFailed)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		common.SysError("topup failed: " + err.Error())
-		return errors.New("充值失败，请稍后重试")
+		if errors.Is(err, ErrTopUpNotProvided) ||
+			errors.Is(err, ErrTopUpOrderNotFound) ||
+			errors.Is(err, ErrTopUpOrderStatus) ||
+			errors.Is(err, ErrTopUpInvalidQuota) ||
+			errors.Is(err, ErrTopUpFailed) {
+			return err
+		}
+		common.SysError("topup transaction failed: " + err.Error())
+		return fmt.Errorf("%w: transaction", ErrTopUpFailed)
 	}
 
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(int(quota)), topUp.Amount))
@@ -237,8 +265,9 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 
 // ManualCompleteTopUp 管理员手动完成订单并给用户充值
 func ManualCompleteTopUp(tradeNo string) error {
+	tradeNo = strings.TrimSpace(tradeNo)
 	if tradeNo == "" {
-		return errors.New("未提供订单号")
+		return ErrTopUpNotProvided
 	}
 
 	refCol := "`trade_no`"
@@ -249,12 +278,17 @@ func ManualCompleteTopUp(tradeNo string) error {
 	var userId int
 	var quotaToAdd int
 	var payMoney float64
+	var completed bool
 
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		topUp := &TopUp{}
 		// 行级锁，避免并发补单
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
-			return errors.New("充值订单不存在")
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			if isRecordNotFound(err) {
+				return ErrTopUpOrderNotFound
+			}
+			common.SysError("manual topup query failed: " + err.Error())
+			return fmt.Errorf("%w: query order", ErrTopUpFailed)
 		}
 
 		// 幂等处理：已成功直接返回
@@ -263,7 +297,7 @@ func ManualCompleteTopUp(tradeNo string) error {
 		}
 
 		if topUp.Status != common.TopUpStatusPending {
-			return errors.New("订单状态不是待支付，无法补单")
+			return ErrTopUpOrderStatus
 		}
 
 		// 计算应充值额度：
@@ -278,37 +312,51 @@ func ManualCompleteTopUp(tradeNo string) error {
 			quotaToAdd = int(dAmount.Mul(dQuotaPerUnit).IntPart())
 		}
 		if quotaToAdd <= 0 {
-			return errors.New("无效的充值额度")
+			return ErrTopUpInvalidQuota
 		}
 
 		// 标记完成
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		if err := tx.Save(topUp).Error; err != nil {
-			return err
+			common.SysError("manual topup save failed: " + err.Error())
+			return fmt.Errorf("%w: save order", ErrTopUpFailed)
 		}
 
 		// 增加用户额度（立即写库，保持一致性）
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {
-			return err
+			common.SysError("manual topup quota update failed: " + err.Error())
+			return fmt.Errorf("%w: update user quota", ErrTopUpFailed)
 		}
 
 		userId = topUp.UserId
 		payMoney = topUp.Money
+		completed = true
 		return nil
 	})
 
 	if err != nil {
-		return err
+		if errors.Is(err, ErrTopUpOrderNotFound) ||
+			errors.Is(err, ErrTopUpOrderStatus) ||
+			errors.Is(err, ErrTopUpInvalidQuota) ||
+			errors.Is(err, ErrTopUpFailed) {
+			return err
+		}
+		common.SysError("manual topup transaction failed: " + err.Error())
+		return fmt.Errorf("%w: transaction", ErrTopUpFailed)
 	}
 
 	// 事务外记录日志，避免阻塞
-	RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+	if completed {
+		RecordLog(userId, LogTypeTopup, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney))
+	}
 	return nil
 }
+
 func RechargeCreem(referenceId string, customerEmail string, customerName string) (err error) {
+	referenceId = strings.TrimSpace(referenceId)
 	if referenceId == "" {
-		return errors.New("未提供支付单号")
+		return ErrTopUpNotProvided
 	}
 
 	var quota int64
@@ -320,24 +368,32 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 	}
 
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(refCol+" = ?", referenceId).First(topUp).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(refCol+" = ?", referenceId).First(topUp).Error
 		if err != nil {
-			return errors.New("充值订单不存在")
+			if isRecordNotFound(err) {
+				return ErrTopUpOrderNotFound
+			}
+			common.SysError("creem topup query failed: " + err.Error())
+			return fmt.Errorf("%w: query order", ErrTopUpFailed)
 		}
 
 		if topUp.Status != common.TopUpStatusPending {
-			return errors.New("充值订单状态错误")
+			return ErrTopUpOrderStatus
+		}
+
+		// Creem 直接使用 Amount 作为充值额度（整数）
+		quota = topUp.Amount
+		if quota <= 0 {
+			return ErrTopUpInvalidQuota
 		}
 
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		err = tx.Save(topUp).Error
 		if err != nil {
-			return err
+			common.SysError("creem topup save failed: " + err.Error())
+			return fmt.Errorf("%w: save order", ErrTopUpFailed)
 		}
-
-		// Creem 直接使用 Amount 作为充值额度（整数）
-		quota = topUp.Amount
 
 		// 构建更新字段，优先使用邮箱，如果邮箱为空则使用用户名
 		updateFields := map[string]interface{}{
@@ -350,7 +406,8 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 			var user User
 			err = tx.Where("id = ?", topUp.UserId).First(&user).Error
 			if err != nil {
-				return err
+				common.SysError("creem topup user query failed: " + err.Error())
+				return fmt.Errorf("%w: query user", ErrTopUpFailed)
 			}
 
 			// 如果用户邮箱为空，则更新为支付时使用的邮箱
@@ -361,15 +418,23 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 
 		err = tx.Model(&User{}).Where("id = ?", topUp.UserId).Updates(updateFields).Error
 		if err != nil {
-			return err
+			common.SysError("creem topup quota update failed: " + err.Error())
+			return fmt.Errorf("%w: update user quota", ErrTopUpFailed)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		common.SysError("creem topup failed: " + err.Error())
-		return errors.New("充值失败，请稍后重试")
+		if errors.Is(err, ErrTopUpNotProvided) ||
+			errors.Is(err, ErrTopUpOrderNotFound) ||
+			errors.Is(err, ErrTopUpOrderStatus) ||
+			errors.Is(err, ErrTopUpInvalidQuota) ||
+			errors.Is(err, ErrTopUpFailed) {
+			return err
+		}
+		common.SysError("creem topup transaction failed: " + err.Error())
+		return fmt.Errorf("%w: transaction", ErrTopUpFailed)
 	}
 
 	RecordLog(topUp.UserId, LogTypeTopup, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money))

@@ -10,10 +10,16 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
-// ErrRedeemFailed is returned when redemption fails due to database error
-var ErrRedeemFailed = errors.New("redeem.failed")
+var (
+	ErrRedemptionNotProvided = errors.New("redemption.not_provided")
+	ErrRedemptionInvalid     = errors.New("redemption.invalid")
+	ErrRedemptionUsed        = errors.New("redemption.used")
+	ErrRedemptionExpired     = errors.New("redemption.expired")
+	ErrRedeemFailed          = errors.New("redeem.failed")
+)
 
 type Redemption struct {
 	Id           int            `json:"id"`
@@ -131,8 +137,9 @@ func GetRedemptionById(id int) (*Redemption, error) {
 }
 
 func Redeem(key string, userId int) (quota int, err error) {
+	key = strings.TrimSpace(key)
 	if key == "" {
-		return 0, errors.New("未提供兑换码")
+		return 0, ErrRedemptionNotProvided
 	}
 	if userId == 0 {
 		return 0, errors.New("无效的 user id")
@@ -145,32 +152,51 @@ func Redeem(key string, userId int) (quota int, err error) {
 	}
 	common.RandomSleep()
 	err = DB.Transaction(func(tx *gorm.DB) error {
-		err := tx.Set("gorm:query_option", "FOR UPDATE").Where(keyCol+" = ?", key).First(redemption).Error
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(keyCol+" = ?", key).First(redemption).Error
 		if err != nil {
-			return errors.New("无效的兑换码")
+			if isRecordNotFound(err) {
+				return ErrRedemptionInvalid
+			}
+			common.SysError("redemption query failed: " + err.Error())
+			return fmt.Errorf("%w: query redemption", ErrRedeemFailed)
 		}
 		if redemption.Status != common.RedemptionCodeStatusEnabled {
-			return errors.New("该兑换码已被使用")
+			return ErrRedemptionUsed
 		}
 		if redemption.ExpiredTime != 0 && redemption.ExpiredTime < common.GetTimestamp() {
-			return errors.New("该兑换码已过期")
+			return ErrRedemptionExpired
 		}
 		err = tx.Model(&User{}).Where("id = ?", userId).Update("quota", gorm.Expr("quota + ?", redemption.Quota)).Error
 		if err != nil {
-			return err
+			common.SysError("redemption quota update failed: " + err.Error())
+			return fmt.Errorf("%w: update user quota", ErrRedeemFailed)
 		}
 		redemption.RedeemedTime = common.GetTimestamp()
 		redemption.Status = common.RedemptionCodeStatusUsed
 		redemption.UsedUserId = userId
 		err = tx.Save(redemption).Error
-		return err
+		if err != nil {
+			common.SysError("redemption save failed: " + err.Error())
+			return fmt.Errorf("%w: save redemption", ErrRedeemFailed)
+		}
+		return nil
 	})
 	if err != nil {
-		common.SysError("redemption failed: " + err.Error())
-		return 0, ErrRedeemFailed
+		if isRedeemBusinessError(err) {
+			return 0, err
+		}
+		common.SysError("redemption transaction failed: " + err.Error())
+		return 0, fmt.Errorf("%w: transaction", ErrRedeemFailed)
 	}
 	RecordLog(userId, LogTypeTopup, fmt.Sprintf("通过兑换码充值 %s，兑换码ID %d", logger.LogQuota(redemption.Quota), redemption.Id))
 	return redemption.Quota, nil
+}
+
+func isRedeemBusinessError(err error) bool {
+	return errors.Is(err, ErrRedemptionInvalid) ||
+		errors.Is(err, ErrRedemptionUsed) ||
+		errors.Is(err, ErrRedemptionExpired) ||
+		errors.Is(err, ErrRedeemFailed)
 }
 
 func (redemption *Redemption) Insert() error {

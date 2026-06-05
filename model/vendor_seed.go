@@ -1,29 +1,11 @@
 package model
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-
-	"gorm.io/gorm"
 )
-
-func isDuplicateKeyError(err error) bool {
-	if err == nil {
-		return false
-	}
-	// NOTE: Error translation is not guaranteed to be enabled in GORM config,
-	// so we also fallback to string matching for PostgreSQL unique violations.
-	if errors.Is(err, gorm.ErrDuplicatedKey) {
-		return true
-	}
-	lower := strings.ToLower(err.Error())
-	return strings.Contains(lower, "duplicate key") ||
-		strings.Contains(lower, "violates unique constraint") ||
-		strings.Contains(lower, "duplicated key")
-}
 
 // EnsureDefaultVendors inserts a minimal set of commonly used vendors into the vendors table
 // if they do not exist yet. This is used to keep the model metadata UI usable out of the box.

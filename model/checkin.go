@@ -2,11 +2,20 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrCheckinDisabled     = errors.New("checkin.disabled")
+	ErrCheckinAlreadyToday = errors.New("checkin.already_today")
+	ErrCheckinFailed       = errors.New("checkin.failed")
+	ErrCheckinQuotaFailed  = errors.New("checkin.quota_failed")
 )
 
 // Checkin 签到记录
@@ -49,21 +58,21 @@ func HasCheckedInToday(userId int) (bool, error) {
 }
 
 // UserCheckin 执行用户签到
-// MySQL 和 PostgreSQL 使用事务保证原子性
-// SQLite 不支持嵌套事务，使用顺序操作 + 手动回滚
+// PostgreSQL 使用事务保证原子性。
 func UserCheckin(userId int) (*Checkin, error) {
 	setting := operation_setting.GetCheckinSetting()
 	if !setting.Enabled {
-		return nil, errors.New("签到功能未启用")
+		return nil, ErrCheckinDisabled
 	}
 
 	// 检查今天是否已签到
 	hasChecked, err := HasCheckedInToday(userId)
 	if err != nil {
-		return nil, err
+		common.SysError("checkin status query failed: " + err.Error())
+		return nil, fmt.Errorf("%w: query status", ErrCheckinFailed)
 	}
 	if hasChecked {
-		return nil, errors.New("今日已签到")
+		return nil, ErrCheckinAlreadyToday
 	}
 
 	// 计算随机额度奖励
@@ -85,26 +94,35 @@ func UserCheckin(userId int) (*Checkin, error) {
 	return userCheckinWithTransaction(checkin, userId, quotaAwarded)
 }
 
-// userCheckinWithTransaction 使用事务执行签到（适用于 MySQL 和 PostgreSQL）
+// userCheckinWithTransaction 使用事务执行签到。
 func userCheckinWithTransaction(checkin *Checkin, userId int, quotaAwarded int) (*Checkin, error) {
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		// 步骤1: 创建签到记录
 		// 数据库有唯一约束 (user_id, checkin_date)，可以防止并发重复签到
 		if err := tx.Create(checkin).Error; err != nil {
-			return errors.New("签到失败，请稍后重试")
+			if isDuplicateKeyError(err) {
+				return ErrCheckinAlreadyToday
+			}
+			common.SysError("checkin create failed: " + err.Error())
+			return fmt.Errorf("%w: create record", ErrCheckinFailed)
 		}
 
 		// 步骤2: 在事务中增加用户额度
 		if err := tx.Model(&User{}).Where("id = ?", userId).
 			Update("quota", gorm.Expr("quota + ?", quotaAwarded)).Error; err != nil {
-			return errors.New("签到失败：更新额度出错")
+			common.SysError("checkin quota update failed: " + err.Error())
+			return fmt.Errorf("%w: update quota", ErrCheckinQuotaFailed)
 		}
 
 		return nil
 	})
 
 	if err != nil {
-		return nil, err
+		if isCheckinBusinessError(err) {
+			return nil, err
+		}
+		common.SysError("checkin transaction failed: " + err.Error())
+		return nil, fmt.Errorf("%w: transaction", ErrCheckinFailed)
 	}
 
 	// 事务成功后，异步更新缓存
@@ -115,12 +133,23 @@ func userCheckinWithTransaction(checkin *Checkin, userId int, quotaAwarded int) 
 	return checkin, nil
 }
 
-// userCheckinWithoutTransaction 不使用事务执行签到（适用于 SQLite）
+func isCheckinBusinessError(err error) bool {
+	return errors.Is(err, ErrCheckinDisabled) ||
+		errors.Is(err, ErrCheckinAlreadyToday) ||
+		errors.Is(err, ErrCheckinFailed) ||
+		errors.Is(err, ErrCheckinQuotaFailed)
+}
+
+// userCheckinWithoutTransaction is retained for legacy tests.
 func userCheckinWithoutTransaction(checkin *Checkin, userId int, quotaAwarded int) (*Checkin, error) {
 	// 步骤1: 创建签到记录
 	// 数据库有唯一约束 (user_id, checkin_date)，可以防止并发重复签到
 	if err := DB.Create(checkin).Error; err != nil {
-		return nil, errors.New("签到失败，请稍后重试")
+		if isDuplicateKeyError(err) {
+			return nil, ErrCheckinAlreadyToday
+		}
+		common.SysError("checkin create failed: " + err.Error())
+		return nil, fmt.Errorf("%w: create record", ErrCheckinFailed)
 	}
 
 	// 步骤2: 增加用户额度
@@ -128,7 +157,8 @@ func userCheckinWithoutTransaction(checkin *Checkin, userId int, quotaAwarded in
 	if err := IncreaseUserQuota(userId, quotaAwarded, true); err != nil {
 		// 如果增加额度失败，需要回滚签到记录
 		DB.Delete(checkin)
-		return nil, errors.New("签到失败：更新额度出错")
+		common.SysError("checkin quota update failed: " + err.Error())
+		return nil, fmt.Errorf("%w: update quota", ErrCheckinQuotaFailed)
 	}
 
 	return checkin, nil

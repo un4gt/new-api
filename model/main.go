@@ -220,6 +220,9 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	if err := migratePrefillGroupNameUniqueIndex(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -260,6 +263,9 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := migratePrefillGroupNameUniqueIndex(); err != nil {
+		return err
+	}
 
 	var wg sync.WaitGroup
 
@@ -328,6 +334,93 @@ func migrateLOGDB() error {
 		return err
 	}
 	return nil
+}
+
+// migratePrefillGroupNameUniqueIndex removes legacy full-table UNIQUE
+// constraints/indexes before AutoMigrate creates the soft-delete-aware
+// partial unique index declared on PrefillGroup.Name.
+func migratePrefillGroupNameUniqueIndex() error {
+	if !common.UsingPostgreSQL {
+		return nil
+	}
+
+	const (
+		tableName   = "prefill_groups"
+		columnName  = "name"
+		targetIndex = "uk_prefill_name"
+	)
+
+	if !DB.Migrator().HasTable(tableName) || !DB.Migrator().HasColumn(&PrefillGroup{}, columnName) {
+		return nil
+	}
+
+	var constraintNames []string
+	if err := DB.Raw(`
+		SELECT tc.constraint_name
+		FROM information_schema.table_constraints AS tc
+		JOIN information_schema.key_column_usage AS kcu
+			ON tc.constraint_schema = kcu.constraint_schema
+			AND tc.constraint_name = kcu.constraint_name
+			AND tc.table_schema = kcu.table_schema
+			AND tc.table_name = kcu.table_name
+		WHERE tc.table_schema = current_schema()
+			AND tc.table_name = ?
+			AND tc.constraint_type = 'UNIQUE'
+		GROUP BY tc.constraint_name
+		HAVING COUNT(*) = 1 AND BOOL_OR(kcu.column_name = ?)
+	`, tableName, columnName).Scan(&constraintNames).Error; err != nil {
+		return fmt.Errorf("failed to query legacy %s.%s unique constraints: %w", tableName, columnName, err)
+	}
+
+	for _, constraintName := range constraintNames {
+		if err := DB.Exec(
+			fmt.Sprintf(
+				"ALTER TABLE %s DROP CONSTRAINT IF EXISTS %s",
+				quotePostgreSQLIdentifier(tableName),
+				quotePostgreSQLIdentifier(constraintName),
+			),
+		).Error; err != nil {
+			return fmt.Errorf("failed to drop legacy unique constraint %s on %s.%s: %w", constraintName, tableName, columnName, err)
+		}
+		common.SysLog(fmt.Sprintf("Dropped legacy unique constraint %s on %s.%s", constraintName, tableName, columnName))
+	}
+
+	var indexNames []string
+	if err := DB.Raw(`
+		SELECT index_class.relname
+		FROM pg_class AS table_class
+		JOIN pg_namespace AS namespace ON namespace.oid = table_class.relnamespace
+		JOIN pg_index AS index_meta ON index_meta.indrelid = table_class.oid
+		JOIN pg_class AS index_class ON index_class.oid = index_meta.indexrelid
+		JOIN pg_attribute AS attr
+			ON attr.attrelid = table_class.oid
+			AND attr.attnum = index_meta.indkey[0]
+		LEFT JOIN pg_constraint AS constraint_meta ON constraint_meta.conindid = index_class.oid
+		WHERE namespace.nspname = current_schema()
+			AND table_class.relname = ?
+			AND index_meta.indisunique
+			AND index_meta.indnatts = 1
+			AND attr.attname = ?
+			AND constraint_meta.oid IS NULL
+			AND index_class.relname <> ?
+	`, tableName, columnName, targetIndex).Scan(&indexNames).Error; err != nil {
+		return fmt.Errorf("failed to query legacy %s.%s unique indexes: %w", tableName, columnName, err)
+	}
+
+	for _, indexName := range indexNames {
+		if err := DB.Exec(
+			fmt.Sprintf("DROP INDEX IF EXISTS %s", quotePostgreSQLIdentifier(indexName)),
+		).Error; err != nil {
+			return fmt.Errorf("failed to drop legacy unique index %s on %s.%s: %w", indexName, tableName, columnName, err)
+		}
+		common.SysLog(fmt.Sprintf("Dropped legacy unique index %s on %s.%s", indexName, tableName, columnName))
+	}
+
+	return nil
+}
+
+func quotePostgreSQLIdentifier(identifier string) string {
+	return `"` + strings.ReplaceAll(identifier, `"`, `""`) + `"`
 }
 
 // migrateTokenModelLimitsToText migrates model_limits column from varchar(1024) to text
