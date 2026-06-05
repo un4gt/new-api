@@ -17,8 +17,12 @@ func GuessRelayFormatFromRequest(req any) (types.RelayFormat, bool) {
 		return types.RelayFormatGemini, true
 	case *dto.EmbeddingRequest, dto.EmbeddingRequest:
 		return types.RelayFormatEmbedding, true
+	case *dto.CohereV2EmbedRequest, dto.CohereV2EmbedRequest:
+		return types.RelayFormatCohereEmbed, true
 	case *dto.RerankRequest, dto.RerankRequest:
 		return types.RelayFormatRerank, true
+	case *dto.CohereV2RerankRequest, dto.CohereV2RerankRequest:
+		return types.RelayFormatCohereRerank, true
 	case *dto.SentenceSimilarityRequest, dto.SentenceSimilarityRequest:
 		return types.RelayFormatSentenceSimilarity, true
 	case *dto.RerankMultimodalRequest, dto.RerankMultimodalRequest:

@@ -69,3 +69,33 @@ type RerankResponse struct {
 	Results []RerankResponseResult `json:"results"`
 	Usage   Usage                  `json:"usage"`
 }
+
+type CohereV2RerankRequest struct {
+	Model           string   `json:"model"`
+	Query           string   `json:"query"`
+	Documents       []string `json:"documents"`
+	TopN            *int     `json:"top_n,omitempty"`
+	MaxTokensPerDoc *int     `json:"max_tokens_per_doc,omitempty"`
+	Priority        *int     `json:"priority,omitempty"`
+}
+
+func (r *CohereV2RerankRequest) IsStream(c *gin.Context) bool {
+	return false
+}
+
+func (r *CohereV2RerankRequest) GetTokenCountMeta() *types.TokenCountMeta {
+	texts := make([]string, 0, len(r.Documents)+1)
+	texts = append(texts, r.Documents...)
+	if r.Query != "" {
+		texts = append(texts, r.Query)
+	}
+	return &types.TokenCountMeta{
+		CombineText: strings.Join(texts, "\n"),
+	}
+}
+
+func (r *CohereV2RerankRequest) SetModelName(modelName string) {
+	if modelName != "" {
+		r.Model = modelName
+	}
+}

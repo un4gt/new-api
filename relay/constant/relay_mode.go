@@ -45,7 +45,7 @@ func Path2RelayMode(path string) int {
 		relayMode = RelayModeChatCompletions
 	} else if strings.HasPrefix(path, "/v1/completions") {
 		relayMode = RelayModeCompletions
-	} else if strings.HasPrefix(path, "/v1/embeddings") {
+	} else if strings.HasPrefix(path, "/v1/embeddings") || strings.HasPrefix(path, "/v2/embed") {
 		relayMode = RelayModeEmbeddings
 	} else if strings.HasSuffix(path, "embeddings") {
 		relayMode = RelayModeEmbeddings
@@ -69,7 +69,7 @@ func Path2RelayMode(path string) int {
 		relayMode = RelayModeAudioTranslation
 	} else if strings.HasPrefix(path, "/v1/rerank/multimodal") {
 		relayMode = RelayModeRerankMultimodal
-	} else if strings.HasPrefix(path, "/v1/rerank") {
+	} else if strings.HasPrefix(path, "/v1/rerank") || strings.HasPrefix(path, "/v2/rerank") {
 		relayMode = RelayModeRerank
 	} else if strings.HasPrefix(path, "/v1/sentence-similarity") {
 		relayMode = RelayModeSentenceSimilarity

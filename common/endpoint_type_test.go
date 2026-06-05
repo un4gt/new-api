@@ -63,3 +63,33 @@ func TestGetEndpointTypesByChannelTypeMoarkPreciseModels(t *testing.T) {
 		})
 	}
 }
+
+func TestGetEndpointTypesByChannelTypeOpenRouterGeminiEmbedding2(t *testing.T) {
+	t.Parallel()
+
+	got := GetEndpointTypesByChannelType(constant.ChannelTypeOpenRouter, constant.OpenRouterGeminiEmbedding2PreviewModel)
+	expected := []constant.EndpointType{constant.EndpointTypeEmbeddings}
+	if len(got) != len(expected) {
+		t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, %q) len = %d, want %d", constant.OpenRouterGeminiEmbedding2PreviewModel, len(got), len(expected))
+	}
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, %q)[%d] = %q, want %q", constant.OpenRouterGeminiEmbedding2PreviewModel, i, got[i], expected[i])
+		}
+	}
+}
+
+func TestGetEndpointTypesByChannelTypeOpenRouterDefault(t *testing.T) {
+	t.Parallel()
+
+	got := GetEndpointTypesByChannelType(constant.ChannelTypeOpenRouter, "cohere/rerank-v3.5")
+	expected := []constant.EndpointType{constant.EndpointTypeOpenAI}
+	if len(got) != len(expected) {
+		t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, cohere/rerank-v3.5) len = %d, want %d", len(got), len(expected))
+	}
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, cohere/rerank-v3.5)[%d] = %q, want %q", i, got[i], expected[i])
+		}
+	}
+}

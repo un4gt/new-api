@@ -111,6 +111,22 @@ func TestCollectPendingUpstreamModelChangesFromModels_WithModelMapping(t *testin
 	require.Equal(t, []string{"stale-model"}, pendingRemoveModels)
 }
 
+func TestFilterCohereEmbedRerankModelNames(t *testing.T) {
+	models := []cohereModel{
+		{Name: "command-r", Endpoints: []string{"chat", "generate"}},
+		{Name: " embed-v4.0 ", Endpoints: []string{"embed"}},
+		{Name: "rerank-v4.0", DefaultEndpoints: []string{"rerank"}},
+		{Name: "classify-only", Endpoints: []string{"classify"}},
+		{Name: "", Endpoints: []string{"embed"}},
+		{Name: "duplicate", Endpoints: []string{"embed"}},
+		{Name: "duplicate", DefaultEndpoints: []string{"rerank"}},
+	}
+
+	result := filterCohereEmbedRerankModelNames(models)
+
+	require.Equal(t, []string{"embed-v4.0", "rerank-v4.0", "duplicate"}, result)
+}
+
 func TestBuildUpstreamModelUpdateTaskNotificationContent_OmitOverflowDetails(t *testing.T) {
 	channelSummaries := make([]upstreamModelUpdateChannelSummary, 0, 12)
 	for i := 0; i < 12; i++ {

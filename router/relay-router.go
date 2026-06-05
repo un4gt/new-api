@@ -49,6 +49,21 @@ func SetRelayRouter(router *gin.Engine) {
 		})
 	}
 
+	relayV2Router := router.Group("/v2")
+	relayV2Router.Use(middleware.RouteTag("relay"))
+	relayV2Router.Use(middleware.SystemPerformanceCheck())
+	relayV2Router.Use(middleware.TokenAuth())
+	relayV2Router.Use(middleware.ModelRequestRateLimit())
+	relayV2Router.Use(middleware.Distribute())
+	{
+		relayV2Router.POST("/embed", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatCohereEmbed)
+		})
+		relayV2Router.POST("/rerank", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatCohereRerank)
+		})
+	}
+
 	// Minimal build: expose Gemini-compatible embedding endpoints for embeddings use cases.
 	relayV1BetaRouter := router.Group("/v1beta")
 	relayV1BetaRouter.Use(middleware.RouteTag("relay"))

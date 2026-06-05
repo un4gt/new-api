@@ -300,6 +300,110 @@ func OpenaiHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Respo
 	return &simpleResponse.Usage, nil
 }
 
+func OpenaiEmbeddingHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {
+	defer service.CloseResponseBodyGracefully(resp)
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeReadResponseBodyFailed, http.StatusInternalServerError)
+	}
+	if common.DebugEnabled {
+		println("upstream response body:", string(responseBody))
+	}
+
+	if info.ChannelType == constant.ChannelTypeOpenRouter && info.ChannelOtherSettings.IsOpenRouterEnterprise() {
+		var enterpriseResponse openrouter.OpenRouterEnterpriseResponse
+		if err := common.Unmarshal(responseBody, &enterpriseResponse); err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+		if enterpriseResponse.Success {
+			responseBody = enterpriseResponse.Data
+		} else {
+			logger.LogError(c, fmt.Sprintf("openrouter enterprise response success=false, data: %s", enterpriseResponse.Data))
+			return nil, types.NewOpenAIError(fmt.Errorf("openrouter response success=false"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
+
+	var embeddingResp struct {
+		ID      string                              `json:"id,omitempty"`
+		Object  string                              `json:"object,omitempty"`
+		Created int64                               `json:"created,omitempty"`
+		Model   string                              `json:"model,omitempty"`
+		Data    []dto.FlexibleEmbeddingResponseItem `json:"data"`
+		Usage   dto.Usage                           `json:"usage"`
+		Error   any                                 `json:"error,omitempty"`
+	}
+	if err := common.Unmarshal(responseBody, &embeddingResp); err != nil {
+		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+
+	if oaiError := dto.GetOpenAIError(embeddingResp.Error); oaiError != nil && oaiError.Type != "" {
+		return nil, types.WithOpenAIError(*oaiError, resp.StatusCode)
+	}
+
+	usageModified := normalizeOpenAIEmbeddingUsage(&embeddingResp.Usage, info)
+	applyUsagePostProcessing(info, &embeddingResp.Usage, responseBody)
+
+	if embeddingResp.Model == "" {
+		embeddingResp.Model = responseModelName(info)
+		usageModified = true
+	}
+	if usageModified {
+		responseBody, err = common.Marshal(embeddingResp)
+		if err != nil {
+			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
+
+	service.IOCopyBytesGracefully(c, resp, responseBody)
+	return &embeddingResp.Usage, nil
+}
+
+func normalizeOpenAIEmbeddingUsage(usage *dto.Usage, info *relaycommon.RelayInfo) bool {
+	if usage == nil {
+		return false
+	}
+
+	modified := false
+	if usage.PromptTokens == 0 && usage.InputTokens > 0 {
+		usage.PromptTokens = usage.InputTokens
+		modified = true
+	}
+	if usage.CompletionTokens == 0 && usage.OutputTokens > 0 {
+		usage.CompletionTokens = usage.OutputTokens
+		modified = true
+	}
+	if usage.TotalTokens == 0 && usage.PromptTokens == 0 && usage.CompletionTokens == 0 {
+		estimate := info.GetEstimatePromptTokens()
+		if estimate <= 0 {
+			estimate = 1
+		}
+		usage.PromptTokens = estimate
+		usage.TotalTokens = estimate
+		modified = true
+	} else {
+		if usage.TotalTokens == 0 {
+			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+			modified = true
+		}
+		if usage.PromptTokens == 0 && usage.TotalTokens > 0 {
+			usage.PromptTokens = usage.TotalTokens
+			modified = true
+		}
+	}
+	return modified
+}
+
+func responseModelName(info *relaycommon.RelayInfo) string {
+	if info == nil {
+		return ""
+	}
+	if strings.TrimSpace(info.OriginModelName) != "" {
+		return strings.TrimSpace(info.OriginModelName)
+	}
+	return strings.TrimSpace(info.UpstreamModelName)
+}
+
 func streamTTSResponse(c *gin.Context, resp *http.Response) {
 	c.Writer.WriteHeaderNow()
 

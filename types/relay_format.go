@@ -13,6 +13,8 @@ const (
 	RelayFormatOpenAIRealtime                        = "openai_realtime"
 	RelayFormatRerank                                = "rerank"
 	RelayFormatEmbedding                             = "embedding"
+	RelayFormatCohereEmbed                           = "cohere_embed"
+	RelayFormatCohereRerank                          = "cohere_rerank"
 	RelayFormatSentenceSimilarity                    = "sentence_similarity"
 	RelayFormatRerankMultimodal                      = "rerank_multimodal"
 

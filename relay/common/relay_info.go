@@ -354,6 +354,21 @@ func GenRelayInfoRerank(c *gin.Context, request *dto.RerankRequest) *RelayInfo {
 	return info
 }
 
+func GenRelayInfoCohereV2Rerank(c *gin.Context, request *dto.CohereV2RerankRequest) *RelayInfo {
+	info := genBaseRelayInfo(c, request)
+	info.RelayMode = relayconstant.RelayModeRerank
+	info.RelayFormat = types.RelayFormatCohereRerank
+	documents := make([]any, 0, len(request.Documents))
+	for _, document := range request.Documents {
+		documents = append(documents, document)
+	}
+	info.RerankerInfo = &RerankerInfo{
+		Documents:       documents,
+		ReturnDocuments: false,
+	}
+	return info
+}
+
 func GenRelayInfoSentenceSimilarity(c *gin.Context, request *dto.SentenceSimilarityRequest) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayMode = relayconstant.RelayModeSentenceSimilarity
@@ -377,6 +392,13 @@ func GenRelayInfoOpenAIAudio(c *gin.Context, request dto.Request) *RelayInfo {
 func GenRelayInfoEmbedding(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatEmbedding
+	return info
+}
+
+func GenRelayInfoCohereV2Embed(c *gin.Context, request *dto.CohereV2EmbedRequest) *RelayInfo {
+	info := genBaseRelayInfo(c, request)
+	info.RelayMode = relayconstant.RelayModeEmbeddings
+	info.RelayFormat = types.RelayFormatCohereEmbed
 	return info
 }
 
@@ -551,6 +573,12 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 			break
 		}
 		err = errors.New("request is not a RerankRequest")
+	case types.RelayFormatCohereRerank:
+		if request, ok := request.(*dto.CohereV2RerankRequest); ok {
+			info = GenRelayInfoCohereV2Rerank(c, request)
+			break
+		}
+		err = errors.New("request is not a CohereV2RerankRequest")
 	case types.RelayFormatSentenceSimilarity:
 		if request, ok := request.(*dto.SentenceSimilarityRequest); ok {
 			info = GenRelayInfoSentenceSimilarity(c, request)
@@ -567,6 +595,12 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 		info = GenRelayInfoGemini(c, request)
 	case types.RelayFormatEmbedding:
 		info = GenRelayInfoEmbedding(c, request)
+	case types.RelayFormatCohereEmbed:
+		if request, ok := request.(*dto.CohereV2EmbedRequest); ok {
+			info = GenRelayInfoCohereV2Embed(c, request)
+			break
+		}
+		err = errors.New("request is not a CohereV2EmbedRequest")
 	case types.RelayFormatOpenAIResponses:
 		if request, ok := request.(*dto.OpenAIResponsesRequest); ok {
 			info = GenRelayInfoResponses(c, request)

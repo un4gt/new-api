@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	appconstant "github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -46,8 +47,12 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		request, err = GetAndValidOpenAIImageRequest(c, relayMode)
 	case types.RelayFormatEmbedding:
 		request, err = GetAndValidateEmbeddingRequest(c, relayMode)
+	case types.RelayFormatCohereEmbed:
+		request, err = GetAndValidateCohereV2EmbedRequest(c)
 	case types.RelayFormatRerank:
 		request, err = GetAndValidateRerankRequest(c)
+	case types.RelayFormatCohereRerank:
+		request, err = GetAndValidateCohereV2RerankRequest(c)
 	case types.RelayFormatSentenceSimilarity:
 		request, err = GetAndValidateSentenceSimilarityRequest(c)
 	case types.RelayFormatRerankMultimodal:
@@ -60,6 +65,122 @@ func GetAndValidateRequest(c *gin.Context, format types.RelayFormat) (request dt
 		return nil, fmt.Errorf("unsupported relay format: %s", format)
 	}
 	return request, err
+}
+
+const invalidDataFormatMessage = "无效的数据格式"
+
+func invalidDataFormatError() *types.NewAPIError {
+	return types.NewErrorWithStatusCode(
+		errors.New(invalidDataFormatMessage),
+		types.ErrorCodeInvalidRequest,
+		http.StatusBadRequest,
+		types.ErrOptionWithSkipRetry(),
+	)
+}
+
+func getReusableBodyJSONMap(c *gin.Context) (map[string]json.RawMessage, error) {
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return nil, err
+	}
+	requestBody, err := storage.Bytes()
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]json.RawMessage
+	if err := common.Unmarshal(requestBody, &raw); err != nil {
+		return nil, err
+	}
+	if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
+		return nil, seekErr
+	}
+	c.Request.Body = io.NopCloser(storage)
+	return raw, nil
+}
+
+func hasUnknownFields(raw map[string]json.RawMessage, allowed map[string]struct{}) bool {
+	for field := range raw {
+		if _, ok := allowed[field]; !ok {
+			return true
+		}
+	}
+	return false
+}
+
+var cohereV2EmbedAllowedFields = map[string]struct{}{
+	"model":            {},
+	"input_type":       {},
+	"texts":            {},
+	"images":           {},
+	"inputs":           {},
+	"max_tokens":       {},
+	"output_dimension": {},
+	"embedding_types":  {},
+	"truncate":         {},
+	"priority":         {},
+}
+
+var cohereV2EmbedInputTypes = map[string]struct{}{
+	"search_document": {},
+	"search_query":    {},
+	"classification":  {},
+	"clustering":      {},
+	"image":           {},
+}
+
+func GetAndValidateCohereV2EmbedRequest(c *gin.Context) (*dto.CohereV2EmbedRequest, error) {
+	raw, err := getReusableBodyJSONMap(c)
+	if err != nil {
+		return nil, err
+	}
+	if hasUnknownFields(raw, cohereV2EmbedAllowedFields) {
+		return nil, invalidDataFormatError()
+	}
+
+	request := &dto.CohereV2EmbedRequest{}
+	if err := common.UnmarshalBodyReusable(c, request); err != nil {
+		logger.LogError(c, fmt.Sprintf("GetAndValidateCohereV2EmbedRequest failed: %s", err.Error()))
+		return nil, invalidDataFormatError()
+	}
+	if strings.TrimSpace(request.Model) == "" || strings.TrimSpace(request.InputType) == "" {
+		return nil, invalidDataFormatError()
+	}
+	if _, ok := cohereV2EmbedInputTypes[request.InputType]; !ok {
+		return nil, invalidDataFormatError()
+	}
+	if len(request.Texts) == 0 && len(request.Images) == 0 && len(request.Inputs) == 0 {
+		return nil, invalidDataFormatError()
+	}
+	return request, nil
+}
+
+var cohereV2RerankAllowedFields = map[string]struct{}{
+	"model":              {},
+	"query":              {},
+	"documents":          {},
+	"top_n":              {},
+	"max_tokens_per_doc": {},
+	"priority":           {},
+}
+
+func GetAndValidateCohereV2RerankRequest(c *gin.Context) (*dto.CohereV2RerankRequest, error) {
+	raw, err := getReusableBodyJSONMap(c)
+	if err != nil {
+		return nil, err
+	}
+	if hasUnknownFields(raw, cohereV2RerankAllowedFields) {
+		return nil, invalidDataFormatError()
+	}
+
+	request := &dto.CohereV2RerankRequest{}
+	if err := common.UnmarshalBodyReusable(c, request); err != nil {
+		logger.LogError(c, fmt.Sprintf("GetAndValidateCohereV2RerankRequest failed: %s", err.Error()))
+		return nil, invalidDataFormatError()
+	}
+	if strings.TrimSpace(request.Model) == "" || strings.TrimSpace(request.Query) == "" || len(request.Documents) == 0 {
+		return nil, invalidDataFormatError()
+	}
+	return request, nil
 }
 
 func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, error) {
@@ -85,6 +206,15 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 }
 
 func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
+	raw, rawErr := getReusableBodyJSONMap(c)
+	if rawErr != nil {
+		logger.LogError(c, fmt.Sprintf("GetAndValidateRerankRequest raw body failed: %s", rawErr.Error()))
+		return nil, types.NewError(rawErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+	isCohereChannel := common.GetContextKeyInt(c, appconstant.ContextKeyChannelType) == appconstant.ChannelTypeCohere
+	if isCohereChannel && hasAnyField(raw, "rank_fields", "max_chunks_per_doc") {
+		return nil, invalidDataFormatError()
+	}
 	var rerankRequest *dto.RerankRequest
 	err := common.UnmarshalBodyReusable(c, &rerankRequest)
 	if err != nil {
@@ -98,7 +228,31 @@ func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {
 	if len(rerankRequest.Documents) == 0 {
 		return nil, types.NewError(fmt.Errorf("documents is empty"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	if isCohereChannel && (rerankRequest.ReturnDocuments != nil ||
+		rerankRequest.MaxChunkPerDoc != nil ||
+		rerankRequest.OverLapTokens != nil ||
+		hasNonStringDocuments(rerankRequest.Documents)) {
+		return nil, invalidDataFormatError()
+	}
 	return rerankRequest, nil
+}
+
+func hasAnyField(raw map[string]json.RawMessage, fields ...string) bool {
+	for _, field := range fields {
+		if _, ok := raw[field]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func hasNonStringDocuments(documents []any) bool {
+	for _, document := range documents {
+		if _, ok := document.(string); !ok {
+			return true
+		}
+	}
+	return false
 }
 
 func GetAndValidateSentenceSimilarityRequest(c *gin.Context) (*dto.SentenceSimilarityRequest, error) {
@@ -157,6 +311,15 @@ func validateRerankMultimodalItem(item dto.RerankMultimodalItem, field string) e
 }
 
 func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.EmbeddingRequest, error) {
+	var raw map[string]json.RawMessage
+	if strings.HasPrefix(c.Request.Header.Get("Content-Type"), "application/json") {
+		var rawErr error
+		raw, rawErr = getReusableBodyJSONMap(c)
+		if rawErr != nil {
+			logger.LogError(c, fmt.Sprintf("GetAndValidateEmbeddingRequest raw body failed: %s", rawErr.Error()))
+			return nil, types.NewError(rawErr, types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+		}
+	}
 	var embeddingRequest *dto.EmbeddingRequest
 	err := common.UnmarshalBodyReusable(c, &embeddingRequest)
 	if err != nil {
@@ -185,6 +348,10 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 	}
 	if relayMode == relayconstant.RelayModeEmbeddings && embeddingRequest.Model == "" {
 		embeddingRequest.Model = c.Param("model")
+	}
+	isCohereChannel := common.GetContextKeyInt(c, appconstant.ContextKeyChannelType) == appconstant.ChannelTypeCohere
+	if isCohereChannel && raw != nil && hasAnyField(raw, "texts") {
+		return nil, invalidDataFormatError()
 	}
 	return embeddingRequest, nil
 }

@@ -270,6 +270,14 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 		return normalizeModelNames(nvidia.ModelList), nil
 	}
 
+	if channel.Type == constant.ChannelTypeCohere {
+		key, _, apiErr := channel.GetNextEnabledKey()
+		if apiErr != nil {
+			return nil, fmt.Errorf("获取渠道密钥失败: %w", apiErr)
+		}
+		return fetchCohereUpstreamModelIDs(baseURL, strings.TrimSpace(key), channel)
+	}
+
 	var url string
 	switch channel.Type {
 	case constant.ChannelTypeAli:
@@ -325,6 +333,55 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 	})
 
 	return normalizeModelNames(ids), nil
+}
+
+type cohereModelsResponse struct {
+	Models []cohereModel `json:"models"`
+}
+
+type cohereModel struct {
+	Name             string   `json:"name"`
+	Endpoints        []string `json:"endpoints"`
+	DefaultEndpoints []string `json:"default_endpoints"`
+}
+
+func fetchCohereUpstreamModelIDs(baseURL string, key string, channel *model.Channel) ([]string, error) {
+	headers, err := buildFetchModelsHeaders(channel, key)
+	if err != nil {
+		return nil, err
+	}
+	body, err := GetResponseBody(http.MethodGet, fmt.Sprintf("%s/v1/models", baseURL), channel, headers)
+	if err != nil {
+		return nil, err
+	}
+	var result cohereModelsResponse
+	if err := common.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	return filterCohereEmbedRerankModelNames(result.Models), nil
+}
+
+func filterCohereEmbedRerankModelNames(models []cohereModel) []string {
+	names := make([]string, 0, len(models))
+	for _, model := range models {
+		if strings.TrimSpace(model.Name) == "" {
+			continue
+		}
+		if cohereModelSupportsEmbedOrRerank(model) {
+			names = append(names, model.Name)
+		}
+	}
+	return normalizeModelNames(names)
+}
+
+func cohereModelSupportsEmbedOrRerank(model cohereModel) bool {
+	for _, endpoint := range append(model.Endpoints, model.DefaultEndpoints...) {
+		switch strings.TrimSpace(strings.ToLower(endpoint)) {
+		case "embed", "rerank":
+			return true
+		}
+	}
+	return false
 }
 
 func updateChannelUpstreamModelSettings(channel *model.Channel, settings dto.ChannelOtherSettings, updateModels bool) error {

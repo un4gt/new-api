@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	appconstant "github.com/QuantumNous/new-api/constant"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -167,6 +168,216 @@ func TestGetAndValidateRerankMultimodalRequest_DocumentInvalidOneOf(t *testing.T
 	require.Nil(t, req)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "documents[0] must contain exactly one of text or image")
+}
+
+func TestGetAndValidateCohereV2EmbedRequest(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":           "embed-v4.0",
+		"input_type":      "search_document",
+		"texts":           []string{"doc"},
+		"embedding_types": []string{"float"},
+	})
+	req, err := GetAndValidateCohereV2EmbedRequest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "embed-v4.0", req.Model)
+	require.Equal(t, "search_document", req.InputType)
+	require.Equal(t, []string{"doc"}, req.Texts)
+}
+
+func TestGetAndValidateCohereV2EmbedRequestRejectsInvalidShapes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "missing input type",
+			body: map[string]any{
+				"model": "embed-v4.0",
+				"texts": []string{"doc"},
+			},
+		},
+		{
+			name: "missing input",
+			body: map[string]any{
+				"model":      "embed-v4.0",
+				"input_type": "search_document",
+			},
+		},
+		{
+			name: "invalid input type",
+			body: map[string]any{
+				"model":      "embed-v4.0",
+				"input_type": "invalid",
+				"texts":      []string{"doc"},
+			},
+		},
+		{
+			name: "unknown field",
+			body: map[string]any{
+				"model":        "embed-v4.0",
+				"input_type":   "search_document",
+				"texts":        []string{"doc"},
+				"old_v1_field": true,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := newJSONContext(t, tc.body)
+			req, err := GetAndValidateCohereV2EmbedRequest(ctx)
+			require.Nil(t, req)
+			require.Error(t, err)
+			require.ErrorContains(t, err, invalidDataFormatMessage)
+		})
+	}
+}
+
+func TestGetAndValidateCohereV2RerankRequest(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":     "rerank-v4.0",
+		"query":     "q",
+		"documents": []string{"doc1", "doc2"},
+		"top_n":     2,
+	})
+	req, err := GetAndValidateCohereV2RerankRequest(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "rerank-v4.0", req.Model)
+	require.Equal(t, "q", req.Query)
+	require.Equal(t, []string{"doc1", "doc2"}, req.Documents)
+	require.Equal(t, 2, *req.TopN)
+}
+
+func TestGetAndValidateCohereV2RerankRequestRejectsV1OnlyFields(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		body map[string]any
+	}{
+		{
+			name: "return documents",
+			body: map[string]any{
+				"model":            "rerank-v4.0",
+				"query":            "q",
+				"documents":        []string{"doc"},
+				"return_documents": true,
+			},
+		},
+		{
+			name: "object document",
+			body: map[string]any{
+				"model":     "rerank-v4.0",
+				"query":     "q",
+				"documents": []map[string]string{{"text": "doc"}},
+			},
+		},
+		{
+			name: "max chunks",
+			body: map[string]any{
+				"model":              "rerank-v4.0",
+				"query":              "q",
+				"documents":          []string{"doc"},
+				"max_chunks_per_doc": 2,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := newJSONContext(t, tc.body)
+			req, err := GetAndValidateCohereV2RerankRequest(ctx)
+			require.Nil(t, req)
+			require.Error(t, err)
+			require.ErrorContains(t, err, invalidDataFormatMessage)
+		})
+	}
+}
+
+func TestGetAndValidateRerankRequestCohereRejectsV1OnlyFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":            "rerank-v4.0",
+		"query":            "q",
+		"documents":        []string{"doc"},
+		"return_documents": true,
+	})
+	common.SetContextKey(ctx, appconstant.ContextKeyChannelType, appconstant.ChannelTypeCohere)
+
+	req, err := GetAndValidateRerankRequest(ctx)
+	require.Nil(t, req)
+	require.Error(t, err)
+	require.ErrorContains(t, err, invalidDataFormatMessage)
+}
+
+func TestGetAndValidateRerankRequestNonCohereAllowsReturnDocuments(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":            "jina-reranker",
+		"query":            "q",
+		"documents":        []string{"doc"},
+		"return_documents": true,
+	})
+
+	req, err := GetAndValidateRerankRequest(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	require.Equal(t, "jina-reranker", req.Model)
+	require.Equal(t, "q", req.Query)
+	require.Equal(t, []any{"doc"}, req.Documents)
+	require.NotNil(t, req.ReturnDocuments)
+	require.True(t, *req.ReturnDocuments)
+}
+
+func TestGetAndValidateEmbeddingRequestCohereRejectsTopLevelTexts(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":      "embed-v4.0",
+		"input":      "doc",
+		"input_type": "search_document",
+		"texts":      []string{"doc"},
+	})
+	common.SetContextKey(ctx, appconstant.ContextKeyChannelType, appconstant.ChannelTypeCohere)
+
+	req, err := GetAndValidateEmbeddingRequest(ctx, relayconstant.RelayModeEmbeddings)
+	require.Nil(t, req)
+	require.Error(t, err)
+	require.ErrorContains(t, err, invalidDataFormatMessage)
+}
+
+func TestGetAndValidateEmbeddingRequestCohereAllowsV2ExtensionFields(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model":            "embed-v4.0",
+		"input":            "doc",
+		"input_type":       "search_document",
+		"output_dimension": 1024,
+		"max_tokens":       128,
+		"embedding_types":  []string{"float"},
+		"priority":         2,
+	})
+	common.SetContextKey(ctx, appconstant.ContextKeyChannelType, appconstant.ChannelTypeCohere)
+
+	req, err := GetAndValidateEmbeddingRequest(ctx, relayconstant.RelayModeEmbeddings)
+	require.NoError(t, err)
+	require.Equal(t, 1024, *req.OutputDimension)
+	require.Equal(t, 128, *req.MaxTokens)
+	require.Equal(t, []string{"float"}, req.EmbeddingTypes)
+	require.Equal(t, 2, *req.Priority)
 }
 
 func TestGetAndValidateEmbeddingRequest_MultipartFileInput(t *testing.T) {

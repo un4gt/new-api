@@ -21,18 +21,23 @@ type EmbeddingOptions struct {
 }
 
 type EmbeddingRequest struct {
-	Model            string   `json:"model"`
-	Input            any      `json:"input"`
-	InputType        *string  `json:"input_type,omitempty"`
-	EncodingFormat   string   `json:"encoding_format,omitempty"`
-	Dimensions       *int     `json:"dimensions,omitempty"`
-	Truncate         *string  `json:"truncate,omitempty"`
-	User             string   `json:"user,omitempty"`
-	Seed             *float64 `json:"seed,omitempty"`
-	Temperature      *float64 `json:"temperature,omitempty"`
-	TopP             *float64 `json:"top_p,omitempty"`
-	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	Model            string          `json:"model"`
+	Input            any             `json:"input"`
+	InputType        *string         `json:"input_type,omitempty"`
+	EncodingFormat   string          `json:"encoding_format,omitempty"`
+	Dimensions       *int            `json:"dimensions,omitempty"`
+	OutputDimension  *int            `json:"output_dimension,omitempty"`
+	MaxTokens        *int            `json:"max_tokens,omitempty"`
+	EmbeddingTypes   []string        `json:"embedding_types,omitempty"`
+	Truncate         *string         `json:"truncate,omitempty"`
+	Priority         *int            `json:"priority,omitempty"`
+	User             string          `json:"user,omitempty"`
+	Seed             *float64        `json:"seed,omitempty"`
+	Temperature      *float64        `json:"temperature,omitempty"`
+	TopP             *float64        `json:"top_p,omitempty"`
+	FrequencyPenalty *float64        `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64        `json:"presence_penalty,omitempty"`
+	Provider         json.RawMessage `json:"provider,omitempty"`
 	// extra_body allows passing provider-specific request extensions while keeping
 	// the OpenAI-style /v1/embeddings shape compatible for standard clients.
 	ExtraBody json.RawMessage `json:"extra_body,omitempty"`
@@ -91,4 +96,40 @@ type EmbeddingResponse struct {
 	Data   []EmbeddingResponseItem `json:"data"`
 	Model  string                  `json:"model"`
 	Usage  `json:"usage"`
+}
+
+type CohereV2EmbedRequest struct {
+	Model           string            `json:"model"`
+	InputType       string            `json:"input_type"`
+	Texts           []string          `json:"texts,omitempty"`
+	Images          []string          `json:"images,omitempty"`
+	Inputs          []json.RawMessage `json:"inputs,omitempty"`
+	MaxTokens       *int              `json:"max_tokens,omitempty"`
+	OutputDimension *int              `json:"output_dimension,omitempty"`
+	EmbeddingTypes  []string          `json:"embedding_types,omitempty"`
+	Truncate        *string           `json:"truncate,omitempty"`
+	Priority        *int              `json:"priority,omitempty"`
+}
+
+func (r *CohereV2EmbedRequest) GetTokenCountMeta() *types.TokenCountMeta {
+	var texts []string
+	texts = append(texts, r.Texts...)
+	for _, input := range r.Inputs {
+		if len(input) > 0 {
+			texts = append(texts, string(input))
+		}
+	}
+	return &types.TokenCountMeta{
+		CombineText: strings.Join(texts, "\n"),
+	}
+}
+
+func (r *CohereV2EmbedRequest) IsStream(c *gin.Context) bool {
+	return false
+}
+
+func (r *CohereV2EmbedRequest) SetModelName(modelName string) {
+	if modelName != "" {
+		r.Model = modelName
+	}
 }

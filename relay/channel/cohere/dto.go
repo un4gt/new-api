@@ -2,59 +2,52 @@ package cohere
 
 import "github.com/QuantumNous/new-api/dto"
 
-type CohereRequest struct {
-	Model       string        `json:"model"`
-	ChatHistory []ChatHistory `json:"chat_history"`
-	Message     string        `json:"message"`
-	Stream      bool          `json:"stream"`
-	MaxTokens   uint          `json:"max_tokens"`
-	SafetyMode  string        `json:"safety_mode,omitempty"`
-}
-
-type ChatHistory struct {
-	Role    string `json:"role"`
-	Message string `json:"message"`
-}
-
-type CohereResponse struct {
-	IsFinished   bool                  `json:"is_finished"`
-	EventType    string                `json:"event_type"`
-	Text         string                `json:"text,omitempty"`
-	FinishReason string                `json:"finish_reason,omitempty"`
-	Response     *CohereResponseResult `json:"response"`
-}
-
-type CohereResponseResult struct {
-	ResponseId   string     `json:"response_id"`
-	FinishReason string     `json:"finish_reason,omitempty"`
-	Text         string     `json:"text"`
-	Meta         CohereMeta `json:"meta"`
-}
-
-type CohereRerankRequest struct {
-	Documents       []any  `json:"documents"`
-	Query           string `json:"query"`
-	Model           string `json:"model"`
-	TopN            int    `json:"top_n"`
-	ReturnDocuments bool   `json:"return_documents"`
-}
-
 type CohereRerankResponseResult struct {
 	Results []dto.RerankResponseResult `json:"results"`
 	Meta    CohereMeta                 `json:"meta"`
 }
 
+type CohereEmbedResponseResult struct {
+	ID         string            `json:"id"`
+	Embeddings CohereEmbeddings  `json:"embeddings"`
+	Texts      []string          `json:"texts"`
+	Images     []CohereImageMeta `json:"images,omitempty"`
+	Meta       CohereMeta        `json:"meta"`
+	Error      any               `json:"error,omitempty"`
+}
+
+type CohereEmbeddings struct {
+	Float   [][]float64 `json:"float"`
+	Float_  [][]float64 `json:"float_"`
+	Int8    any         `json:"int8,omitempty"`
+	Uint8   any         `json:"uint8,omitempty"`
+	Binary  any         `json:"binary,omitempty"`
+	Ubinary any         `json:"ubinary,omitempty"`
+	Base64  any         `json:"base64,omitempty"`
+}
+
+type CohereImageMeta struct {
+	Width    int    `json:"width,omitempty"`
+	Height   int    `json:"height,omitempty"`
+	Format   string `json:"format,omitempty"`
+	BitDepth int    `json:"bit_depth,omitempty"`
+}
+
 type CohereMeta struct {
-	//Tokens CohereTokens `json:"tokens"`
 	BilledUnits CohereBilledUnits `json:"billed_units"`
+	Tokens      CohereTokens      `json:"tokens"`
 }
 
 type CohereBilledUnits struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens     *float64 `json:"input_tokens"`
+	OutputTokens    *float64 `json:"output_tokens"`
+	SearchUnits     *float64 `json:"search_units"`
+	Images          *float64 `json:"images"`
+	ImageTokens     *float64 `json:"image_tokens"`
+	Classifications *float64 `json:"classifications"`
 }
 
 type CohereTokens struct {
-	InputTokens  int `json:"input_tokens"`
-	OutputTokens int `json:"output_tokens"`
+	InputTokens  *float64 `json:"input_tokens"`
+	OutputTokens *float64 `json:"output_tokens"`
 }
