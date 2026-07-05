@@ -8,6 +8,9 @@ upload
 build
 *.db-journal
 logs
+web/node_modules
+web/default/node_modules
+web/default/dist
 web/dist
 .env
 one-api

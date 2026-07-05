@@ -9,6 +9,6 @@ hooks = [{ id = "check-yaml" }, { id = "end-of-file-fixer" }]
 repo = "local"
 hooks = [
     { id = "go-test", name = "Go Backend Test", language = "system", entry = "go test ./...", files = '\.go$|go\.mod$', pass_filenames = false },
-    { id = "web-prettier", name = "Frontend Prettier Check", language = "system", entry = "bash -c 'cd web && bun install && bun run lint'", files = '^web/.*\.(js|jsx|ts|tsx|json|css|md)$', pass_filenames = false },
-    { id = "web-eslint", name = "Frontend ESLint Check", language = "system", entry = "bash -c 'cd web && bun install && bun run eslint'", files = '^web/.*\.(js|jsx)$', pass_filenames = false },
+    { id = "web-format", name = "Frontend Format Check", language = "system", entry = "bash -c 'cd web && bun install && cd default && bun run format:check'", files = '^web/default/.*\.(js|jsx|ts|tsx|json|css|md)$|^web/package\.json$|^web/bun\.lock$', pass_filenames = false },
+    { id = "web-lint", name = "Frontend Lint Check", language = "system", entry = "bash -c 'cd web && bun install && cd default && bun run lint'", files = '^web/default/.*\.(js|jsx|ts|tsx)$', pass_filenames = false },
 ]

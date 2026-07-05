@@ -8,5 +8,7 @@ docs
 .eslintcache
 .gocache
 /web/node_modules
+/web/default/node_modules
+/web/default/dist
 
 docs/_local/
