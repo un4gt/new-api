@@ -997,6 +997,26 @@ func FetchModels(c *gin.Context) {
 		return
 	}
 
+	if req.Type == constant.ChannelTypeCohere {
+		channel := &model.Channel{
+			Type: req.Type,
+			Key:  key,
+		}
+		models, err := fetchCohereUpstreamModelIDs(baseURL, key, channel)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": fmt.Sprintf("获取Cohere模型失败: %s", err.Error()),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"data":    models,
+		})
+		return
+	}
+
 	client := &http.Client{}
 	url := fmt.Sprintf("%s/v1/models", baseURL)
 

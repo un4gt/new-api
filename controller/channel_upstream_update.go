@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"sync"
@@ -336,7 +337,8 @@ func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
 }
 
 type cohereModelsResponse struct {
-	Models []cohereModel `json:"models"`
+	Models        []cohereModel `json:"models"`
+	NextPageToken string        `json:"next_page_token"`
 }
 
 type cohereModel struct {
@@ -350,15 +352,30 @@ func fetchCohereUpstreamModelIDs(baseURL string, key string, channel *model.Chan
 	if err != nil {
 		return nil, err
 	}
-	body, err := GetResponseBody(http.MethodGet, fmt.Sprintf("%s/v1/models", baseURL), channel, headers)
-	if err != nil {
-		return nil, err
+	models := make([]cohereModel, 0)
+	pageToken := ""
+	for {
+		query := url.Values{}
+		query.Set("page_size", "1000")
+		if pageToken != "" {
+			query.Set("page_token", pageToken)
+		}
+		requestURL := fmt.Sprintf("%s/v1/models?%s", baseURL, query.Encode())
+		body, err := GetResponseBody(http.MethodGet, requestURL, channel, headers)
+		if err != nil {
+			return nil, err
+		}
+		var result cohereModelsResponse
+		if err := common.Unmarshal(body, &result); err != nil {
+			return nil, err
+		}
+		models = append(models, result.Models...)
+		pageToken = strings.TrimSpace(result.NextPageToken)
+		if pageToken == "" {
+			break
+		}
 	}
-	var result cohereModelsResponse
-	if err := common.Unmarshal(body, &result); err != nil {
-		return nil, err
-	}
-	return filterCohereEmbedRerankModelNames(result.Models), nil
+	return filterCohereEmbedRerankModelNames(models), nil
 }
 
 func filterCohereEmbedRerankModelNames(models []cohereModel) []string {
@@ -377,7 +394,7 @@ func filterCohereEmbedRerankModelNames(models []cohereModel) []string {
 func cohereModelSupportsEmbedOrRerank(model cohereModel) bool {
 	for _, endpoint := range append(model.Endpoints, model.DefaultEndpoints...) {
 		switch strings.TrimSpace(strings.ToLower(endpoint)) {
-		case "embed", "rerank":
+		case "embed", "embed_image", "rerank":
 			return true
 		}
 	}

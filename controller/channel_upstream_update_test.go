@@ -115,6 +115,8 @@ func TestFilterCohereEmbedRerankModelNames(t *testing.T) {
 	models := []cohereModel{
 		{Name: "command-r", Endpoints: []string{"chat", "generate"}},
 		{Name: " embed-v4.0 ", Endpoints: []string{"embed"}},
+		{Name: "embed-english-v3.0-image", Endpoints: []string{"embed_image"}},
+		{Name: "embed-multilingual-v3.0-image", DefaultEndpoints: []string{"EMBED_IMAGE"}},
 		{Name: "rerank-v4.0", DefaultEndpoints: []string{"rerank"}},
 		{Name: "classify-only", Endpoints: []string{"classify"}},
 		{Name: "", Endpoints: []string{"embed"}},
@@ -124,7 +126,7 @@ func TestFilterCohereEmbedRerankModelNames(t *testing.T) {
 
 	result := filterCohereEmbedRerankModelNames(models)
 
-	require.Equal(t, []string{"embed-v4.0", "rerank-v4.0", "duplicate"}, result)
+	require.Equal(t, []string{"embed-v4.0", "embed-english-v3.0-image", "embed-multilingual-v3.0-image", "rerank-v4.0", "duplicate"}, result)
 }
 
 func TestBuildUpstreamModelUpdateTaskNotificationContent_OmitOverflowDetails(t *testing.T) {

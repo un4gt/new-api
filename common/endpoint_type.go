@@ -1,6 +1,10 @@
 package common
 
-import "github.com/QuantumNous/new-api/constant"
+import (
+	"strings"
+
+	"github.com/QuantumNous/new-api/constant"
+)
 
 // GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
@@ -22,6 +26,17 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 	case constant.ChannelTypeNvidia:
 		endpointTypes = []constant.EndpointType{
 			constant.EndpointTypeEmbeddings,
+		}
+	case constant.ChannelTypeCohere:
+		if strings.HasPrefix(modelName, "embed-") {
+			endpointTypes = []constant.EndpointType{constant.EndpointTypeEmbeddings}
+		} else if strings.HasPrefix(modelName, "rerank-") {
+			endpointTypes = []constant.EndpointType{constant.EndpointTypeJinaRerank}
+		} else {
+			endpointTypes = []constant.EndpointType{
+				constant.EndpointTypeEmbeddings,
+				constant.EndpointTypeJinaRerank,
+			}
 		}
 	//case constant.ChannelTypeSunoAPI:
 	//	endpointTypes = []constant.EndpointType{constant.EndpointTypeSuno}

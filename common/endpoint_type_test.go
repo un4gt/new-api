@@ -6,6 +6,20 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 )
 
+func requireEndpointTypes(t *testing.T, channelType int, modelName string, expected []constant.EndpointType) {
+	t.Helper()
+
+	got := GetEndpointTypesByChannelType(channelType, modelName)
+	if len(got) != len(expected) {
+		t.Fatalf("GetEndpointTypesByChannelType(%d, %q) len = %d, want %d", channelType, modelName, len(got), len(expected))
+	}
+	for i := range expected {
+		if got[i] != expected[i] {
+			t.Fatalf("GetEndpointTypesByChannelType(%d, %q)[%d] = %q, want %q", channelType, modelName, i, got[i], expected[i])
+		}
+	}
+}
+
 func TestGetEndpointTypesByChannelTypeMoarkPreciseModels(t *testing.T) {
 	t.Parallel()
 
@@ -51,15 +65,47 @@ func TestGetEndpointTypesByChannelTypeMoarkPreciseModels(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := GetEndpointTypesByChannelType(constant.ChannelTypeMoark, tc.modelName)
-			if len(got) != len(tc.expected) {
-				t.Fatalf("GetEndpointTypesByChannelType(%q) len = %d, want %d", tc.modelName, len(got), len(tc.expected))
-			}
-			for i := range tc.expected {
-				if got[i] != tc.expected[i] {
-					t.Fatalf("GetEndpointTypesByChannelType(%q)[%d] = %q, want %q", tc.modelName, i, got[i], tc.expected[i])
-				}
-			}
+			requireEndpointTypes(t, constant.ChannelTypeMoark, tc.modelName, tc.expected)
+		})
+	}
+}
+
+func TestGetEndpointTypesByChannelTypeCohere(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		modelName string
+		expected  []constant.EndpointType
+	}{
+		{
+			name:      "text embedding uses embeddings endpoint",
+			modelName: "embed-v4.0",
+			expected:  []constant.EndpointType{constant.EndpointTypeEmbeddings},
+		},
+		{
+			name:      "image embedding uses embeddings endpoint",
+			modelName: "embed-english-v3.0-image",
+			expected:  []constant.EndpointType{constant.EndpointTypeEmbeddings},
+		},
+		{
+			name:      "reranker uses rerank endpoint",
+			modelName: "rerank-v4.0-pro",
+			expected:  []constant.EndpointType{constant.EndpointTypeJinaRerank},
+		},
+		{
+			name:      "unknown cohere model keeps supported minimal endpoints",
+			modelName: "custom-cohere-model",
+			expected:  []constant.EndpointType{constant.EndpointTypeEmbeddings, constant.EndpointTypeJinaRerank},
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			requireEndpointTypes(t, constant.ChannelTypeCohere, tc.modelName, tc.expected)
 		})
 	}
 }
@@ -67,29 +113,13 @@ func TestGetEndpointTypesByChannelTypeMoarkPreciseModels(t *testing.T) {
 func TestGetEndpointTypesByChannelTypeOpenRouterGeminiEmbedding2(t *testing.T) {
 	t.Parallel()
 
-	got := GetEndpointTypesByChannelType(constant.ChannelTypeOpenRouter, constant.OpenRouterGeminiEmbedding2PreviewModel)
 	expected := []constant.EndpointType{constant.EndpointTypeEmbeddings}
-	if len(got) != len(expected) {
-		t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, %q) len = %d, want %d", constant.OpenRouterGeminiEmbedding2PreviewModel, len(got), len(expected))
-	}
-	for i := range expected {
-		if got[i] != expected[i] {
-			t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, %q)[%d] = %q, want %q", constant.OpenRouterGeminiEmbedding2PreviewModel, i, got[i], expected[i])
-		}
-	}
+	requireEndpointTypes(t, constant.ChannelTypeOpenRouter, constant.OpenRouterGeminiEmbedding2PreviewModel, expected)
 }
 
 func TestGetEndpointTypesByChannelTypeOpenRouterDefault(t *testing.T) {
 	t.Parallel()
 
-	got := GetEndpointTypesByChannelType(constant.ChannelTypeOpenRouter, "cohere/rerank-v3.5")
 	expected := []constant.EndpointType{constant.EndpointTypeOpenAI}
-	if len(got) != len(expected) {
-		t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, cohere/rerank-v3.5) len = %d, want %d", len(got), len(expected))
-	}
-	for i := range expected {
-		if got[i] != expected[i] {
-			t.Fatalf("GetEndpointTypesByChannelType(OpenRouter, cohere/rerank-v3.5)[%d] = %q, want %q", i, got[i], expected[i])
-		}
-	}
+	requireEndpointTypes(t, constant.ChannelTypeOpenRouter, "cohere/rerank-v3.5", expected)
 }
