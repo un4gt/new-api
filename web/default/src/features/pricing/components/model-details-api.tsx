@@ -28,10 +28,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BundledLanguage } from 'shiki/bundle/web'
 
-import {
-  CodeBlock,
-  CodeBlockCopyButton,
-} from '@/components/ai-elements/code-block'
+import { CodeBlock, CodeBlockCopyButton } from '@/components/ui/code-block'
 import {
   StaticDataTable,
   staticDataTableClassNames as tableStyles,
