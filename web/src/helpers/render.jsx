@@ -255,7 +255,10 @@ export const getModelCategories = (() => {
       cloudflare: {
         label: 'Cloudflare',
         icon: <Cloudflare.Color />,
-        filter: (model) => model.model_name.toLowerCase().includes('@cf/'),
+        filter: (model) => {
+          const modelName = model.model_name.toLowerCase();
+          return modelName.startsWith('cf/') || modelName.includes('@cf/');
+        },
       },
       ai360: {
         label: t('360智脑'),

@@ -1,39 +1,36 @@
 package cloudflare
 
-var ModelList = []string{
-	"@cf/meta/llama-3.1-8b-instruct",
-	"@cf/meta/llama-2-7b-chat-fp16",
-	"@cf/meta/llama-2-7b-chat-int8",
-	"@cf/mistral/mistral-7b-instruct-v0.1",
-	"@hf/thebloke/deepseek-coder-6.7b-base-awq",
-	"@hf/thebloke/deepseek-coder-6.7b-instruct-awq",
-	"@cf/deepseek-ai/deepseek-math-7b-base",
-	"@cf/deepseek-ai/deepseek-math-7b-instruct",
-	"@cf/thebloke/discolm-german-7b-v1-awq",
-	"@cf/tiiuae/falcon-7b-instruct",
-	"@cf/google/gemma-2b-it-lora",
-	"@hf/google/gemma-7b-it",
-	"@cf/google/gemma-7b-it-lora",
-	"@hf/nousresearch/hermes-2-pro-mistral-7b",
-	"@hf/thebloke/llama-2-13b-chat-awq",
-	"@cf/meta-llama/llama-2-7b-chat-hf-lora",
-	"@cf/meta/llama-3-8b-instruct",
-	"@hf/thebloke/llamaguard-7b-awq",
-	"@hf/thebloke/mistral-7b-instruct-v0.1-awq",
-	"@hf/mistralai/mistral-7b-instruct-v0.2",
-	"@cf/mistral/mistral-7b-instruct-v0.2-lora",
-	"@hf/thebloke/neural-chat-7b-v3-1-awq",
-	"@cf/openchat/openchat-3.5-0106",
-	"@hf/thebloke/openhermes-2.5-mistral-7b-awq",
-	"@cf/microsoft/phi-2",
-	"@cf/qwen/qwen1.5-0.5b-chat",
-	"@cf/qwen/qwen1.5-1.8b-chat",
-	"@cf/qwen/qwen1.5-14b-chat-awq",
-	"@cf/qwen/qwen1.5-7b-chat-awq",
-	"@cf/defog/sqlcoder-7b-2",
-	"@hf/nexusflow/starling-lm-7b-beta",
-	"@cf/tinyllama/tinyllama-1.1b-chat-v1.0",
-	"@hf/thebloke/zephyr-7b-beta-awq",
+type modelSpec struct {
+	ID            string
+	UpstreamID    string
+	SupportsBatch bool
 }
+
+var modelSpecs = []modelSpec{
+	{ID: "cf/plamo-embedding-1b", UpstreamID: "@cf/pfnet/plamo-embedding-1b", SupportsBatch: false},
+	{ID: "cf/embeddinggemma-300m", UpstreamID: "@cf/google/embeddinggemma-300m", SupportsBatch: false},
+	{ID: "cf/qwen-embedding-0.6b", UpstreamID: "@cf/qwen/qwen3-embedding-0.6b", SupportsBatch: false},
+	{ID: "cf/bge-m3", UpstreamID: "@cf/baai/bge-m3", SupportsBatch: true},
+	{ID: "cf/bge-large-en-v1.5", UpstreamID: "@cf/baai/bge-large-en-v1.5", SupportsBatch: true},
+	{ID: "cf/bge-small-en-v1.5", UpstreamID: "@cf/baai/bge-small-en-v1.5", SupportsBatch: true},
+	{ID: "cf/bge-base-en-v1.5", UpstreamID: "@cf/baai/bge-base-en-v1.5", SupportsBatch: true},
+}
+
+func resolveUpstreamModel(model string) string {
+	for _, spec := range modelSpecs {
+		if model == spec.ID {
+			return spec.UpstreamID
+		}
+	}
+	return model
+}
+
+var ModelList = func() []string {
+	models := make([]string, 0, len(modelSpecs))
+	for _, spec := range modelSpecs {
+		models = append(models, spec.ID)
+	}
+	return models
+}()
 
 var ChannelName = "cloudflare"

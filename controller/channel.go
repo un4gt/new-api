@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/cloudflare"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/nvidia"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
@@ -471,6 +472,37 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
+	if channel.Type == constant.ChannelCloudflare && channel.Key != "" {
+		if err := cloudflare.ValidateCredentialList(channel.Key); err != nil {
+			return fmt.Errorf("Cloudflare 渠道密钥格式错误：%s", err.Error())
+		}
+	}
+
+	return nil
+}
+
+func validateCloudflareKeyForMode(channel *model.Channel, allowMultiple bool) error {
+	if channel == nil || channel.Type != constant.ChannelCloudflare || channel.Key == "" {
+		return nil
+	}
+	var err error
+	if allowMultiple {
+		var credentials []string
+		credentials, err = cloudflare.NormalizeCredentialList(channel.Key)
+		if err == nil {
+			channel.Key = strings.Join(credentials, "\n")
+		}
+	} else {
+		var accountID string
+		var apiToken string
+		accountID, apiToken, err = cloudflare.ParseCredential(channel.Key)
+		if err == nil {
+			channel.Key = accountID + "," + apiToken
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("Cloudflare 渠道密钥格式错误：%s", err.Error())
+	}
 	return nil
 }
 
@@ -582,6 +614,23 @@ func AddChannel(c *gin.Context) {
 			"message": "不支持的添加模式",
 		})
 		return
+	}
+	if err := validateCloudflareKeyForMode(addChannelRequest.Channel, addChannelRequest.Mode != "single"); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
+	}
+	if addChannelRequest.Channel.Type == constant.ChannelCloudflare {
+		if addChannelRequest.Mode == "batch" {
+			keys = strings.Split(addChannelRequest.Channel.Key, "\n")
+		} else {
+			keys = []string{addChannelRequest.Channel.Key}
+		}
+		if addChannelRequest.Mode == "multi_to_single" {
+			addChannelRequest.Channel.ChannelInfo.MultiKeySize = len(strings.Split(addChannelRequest.Channel.Key, "\n"))
+		}
 	}
 
 	channels := make([]model.Channel, 0, len(keys))
@@ -908,6 +957,13 @@ func UpdateChannel(c *gin.Context) {
 		case "replace":
 			// 覆盖模式：直接使用新密钥（默认行为，不需要特殊处理）
 		}
+	}
+	if err := validateCloudflareKeyForMode(&channel.Channel, channel.ChannelInfo.IsMultiKey); err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": err.Error(),
+		})
+		return
 	}
 	err = channel.Update()
 	if err != nil {

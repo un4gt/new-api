@@ -26,6 +26,7 @@ var defaultVendorRules = map[string]string{
 	"spark":    "讯飞",
 	"hunyuan":  "腾讯",
 	"command":  "Cohere",
+	"cf/":      "Cloudflare",
 	"@cf/":     "Cloudflare",
 	"360":      "360",
 	"yi":       "零一万物",
@@ -232,11 +233,15 @@ func initDefaultVendorMapping(metaMap map[string]*Model, vendorMap map[int]*Vend
 
 		// 匹配供应商
 		vendorID := 0
-		modelLower := strings.ToLower(modelName)
-		for pattern, vendorName := range defaultVendorRules {
-			if strings.Contains(modelLower, pattern) {
-				vendorID = getOrCreateVendor(vendorName, vendorMap)
-				break
+		if ability.ChannelType == constant.ChannelCloudflare {
+			vendorID = getOrCreateVendor("Cloudflare", vendorMap)
+		} else {
+			modelLower := strings.ToLower(modelName)
+			for pattern, vendorName := range defaultVendorRules {
+				if strings.Contains(modelLower, pattern) {
+					vendorID = getOrCreateVendor(vendorName, vendorMap)
+					break
+				}
 			}
 		}
 

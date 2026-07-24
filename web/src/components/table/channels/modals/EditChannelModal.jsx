@@ -150,6 +150,8 @@ function type2secretPrompt(type) {
       return '请输入讯飞星辰服务对应的 APIKey';
     case 23:
       return '按照如下格式输入：AppId|SecretId|SecretKey';
+    case 39:
+      return '请输入 Cloudflare 组合凭据，格式：ACCOUNT_ID,API_TOKEN';
     case 45:
       return '请输入渠道对应的鉴权密钥, 豆包语音输入：AppId|AccessToken';
     case 50:
@@ -159,6 +161,27 @@ function type2secretPrompt(type) {
     default:
       return '请输入渠道对应的鉴权密钥';
   }
+}
+
+function isValidCloudflareCredential(value) {
+  if (typeof value !== 'string' || /[\r\n]/.test(value)) {
+    return false;
+  }
+  const parts = value.split(',');
+  return parts.length === 2 && parts.every((part) => part.trim() !== '');
+}
+
+function areValidCloudflareCredentials(value, allowMultiple) {
+  if (!value || value.trim() === '') {
+    return true;
+  }
+  if (!allowMultiple) {
+    return isValidCloudflareCredential(value);
+  }
+  const credentials = value.split(/\r?\n/).filter((line) => line.trim() !== '');
+  return (
+    credentials.length > 0 && credentials.every(isValidCloudflareCredential)
+  );
 }
 
 const EditChannelModal = (props) => {
@@ -1147,7 +1170,9 @@ const EditChannelModal = (props) => {
             ? res.data.balance.toFixed(4)
             : res.data.balance;
         const unit = res.data.data?.unit || 'USD';
-        showSuccess(t('余额脚本测试成功：{{balance}} {{unit}}', { balance, unit }));
+        showSuccess(
+          t('余额脚本测试成功：{{balance}} {{unit}}', { balance, unit }),
+        );
       } else {
         showError(res?.data?.message || t('余额脚本测试失败'));
       }
@@ -1612,15 +1637,15 @@ const EditChannelModal = (props) => {
       }
     }
 
-	if (localInputs.base_url && localInputs.base_url.endsWith('/')) {
-	  localInputs.base_url = localInputs.base_url.slice(
-	    0,
-	    localInputs.base_url.length - 1,
-	  );
-	}
+    if (localInputs.base_url && localInputs.base_url.endsWith('/')) {
+      localInputs.base_url = localInputs.base_url.slice(
+        0,
+        localInputs.base_url.length - 1,
+      );
+    }
 
-	// 生成渠道额外设置JSON
-	const channelExtraSettings = {
+    // 生成渠道额外设置JSON
+    const channelExtraSettings = {
       force_format: localInputs.force_format || false,
       thinking_to_content: localInputs.thinking_to_content || false,
       proxy: localInputs.proxy || '',
@@ -2240,19 +2265,54 @@ const EditChannelModal = (props) => {
                       ) : (
                         <Form.TextArea
                           field='key'
-                          label={t('密钥')}
-                          placeholder={t('请输入密钥，一行一个')}
-                          rules={
-                            isEdit
-                              ? []
-                              : [{ required: true, message: t('请输入密钥') }]
+                          label={
+                            inputs.type === 39
+                              ? t('Cloudflare 组合凭据')
+                              : t('密钥')
                           }
+                          placeholder={t(
+                            inputs.type === 39
+                              ? '请输入 Cloudflare 组合凭据，一行一组，格式：ACCOUNT_ID,API_TOKEN'
+                              : '请输入密钥，一行一个',
+                          )}
+                          rules={[
+                            ...(isEdit
+                              ? []
+                              : [
+                                  {
+                                    required: true,
+                                    message: t('请输入密钥'),
+                                  },
+                                ]),
+                            ...(inputs.type === 39
+                              ? [
+                                  {
+                                    validator: (_rule, value) =>
+                                      areValidCloudflareCredentials(value, true)
+                                        ? Promise.resolve()
+                                        : Promise.reject(
+                                            t(
+                                              'Cloudflare 凭据格式无效，请使用 ACCOUNT_ID,API_TOKEN，每行一组',
+                                            ),
+                                          ),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                          trigger={inputs.type === 39 ? 'blur' : undefined}
                           autosize
                           autoComplete='new-password'
                           onChange={(value) => handleInputChange('key', value)}
                           disabled={isIonetLocked}
                           extraText={
                             <div className='flex items-center gap-2 flex-wrap'>
+                              {inputs.type === 39 && (
+                                <Text type='tertiary' size='small'>
+                                  {t(
+                                    '每行必须是完整的 ACCOUNT_ID,API_TOKEN 组合凭据',
+                                  )}
+                                </Text>
+                              )}
                               {isEdit &&
                                 isMultiKeyChannel &&
                                 keyMode === 'append' && (
@@ -2432,22 +2492,60 @@ const EditChannelModal = (props) => {
                           <Form.Input
                             field='key'
                             label={
-                              isEdit
-                                ? t('密钥（编辑模式下，保存的密钥不会显示）')
-                                : t('密钥')
+                              inputs.type === 39 && isEdit
+                                ? t(
+                                    'Cloudflare 组合凭据（编辑模式下，保存的凭据不会显示）',
+                                  )
+                                : inputs.type === 39
+                                  ? t('Cloudflare 组合凭据')
+                                  : isEdit
+                                    ? t(
+                                        '密钥（编辑模式下，保存的密钥不会显示）',
+                                      )
+                                    : t('密钥')
                             }
                             placeholder={t(type2secretPrompt(inputs.type))}
-                            rules={
-                              isEdit
+                            rules={[
+                              ...(isEdit
                                 ? []
-                                : [{ required: true, message: t('请输入密钥') }]
-                            }
+                                : [
+                                    {
+                                      required: true,
+                                      message: t('请输入密钥'),
+                                    },
+                                  ]),
+                              ...(inputs.type === 39
+                                ? [
+                                    {
+                                      validator: (_rule, value) =>
+                                        areValidCloudflareCredentials(
+                                          value,
+                                          false,
+                                        )
+                                          ? Promise.resolve()
+                                          : Promise.reject(
+                                              t(
+                                                'Cloudflare 凭据格式无效，请使用 ACCOUNT_ID,API_TOKEN',
+                                              ),
+                                            ),
+                                    },
+                                  ]
+                                : []),
+                            ]}
+                            trigger={inputs.type === 39 ? 'blur' : undefined}
                             autoComplete='new-password'
                             onChange={(value) =>
                               handleInputChange('key', value)
                             }
                             extraText={
-                              <div className='flex items-center gap-2'>
+                              <div className='flex items-center gap-2 flex-wrap'>
+                                {inputs.type === 39 && (
+                                  <Text type='tertiary' size='small'>
+                                    {t(
+                                      '请输入完整的 ACCOUNT_ID,API_TOKEN 组合凭据',
+                                    )}
+                                  </Text>
+                                )}
                                 {isEdit &&
                                   isMultiKeyChannel &&
                                   keyMode === 'append' && (
@@ -2524,10 +2622,10 @@ const EditChannelModal = (props) => {
                           />
                         )}
                       </>
-	                    )}
+                    )}
 
-	                    {inputs.type === 41 && (
-	                      <JSONEditor
+                    {inputs.type === 41 && (
+                      <JSONEditor
                         key={`region-${isEdit ? channelId : 'new'}`}
                         field='other'
                         label={t('部署地区')}
@@ -2544,18 +2642,6 @@ const EditChannelModal = (props) => {
                         editorType='region'
                         formApi={formApiRef.current}
                         extraText={t('设置默认地区和特定模型的专用地区')}
-                      />
-                    )}
-
-                    {inputs.type === 39 && (
-                      <Form.Input
-                        field='other'
-                        label='Account ID'
-                        placeholder={
-                          '请输入Account ID，例如：d6b5da8hk1awo8nap34ube6gh'
-                        }
-                        onChange={(value) => handleInputChange('other', value)}
-                        showClear
                       />
                     )}
 

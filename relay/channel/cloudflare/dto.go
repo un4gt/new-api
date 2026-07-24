@@ -19,3 +19,24 @@ type CfAudioResponse struct {
 type CfSTTResult struct {
 	Text string `json:"text"`
 }
+
+type CfEmbeddingRequest struct {
+	Text []string `json:"text"`
+}
+
+type CfEmbeddingResponse struct {
+	Result   CfEmbeddingResult   `json:"result"`
+	Success  bool                `json:"success"`
+	Errors   []CfResponseMessage `json:"errors"`
+	Messages []CfResponseMessage `json:"messages"`
+}
+
+type CfEmbeddingResult struct {
+	Shape []int       `json:"shape"`
+	Data  [][]float64 `json:"data"`
+}
+
+type CfResponseMessage struct {
+	Code    any    `json:"code"`
+	Message string `json:"message"`
+}
