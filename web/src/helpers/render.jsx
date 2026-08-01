@@ -391,6 +391,19 @@ export function getChannelIcon(channelType) {
           }}
         />
       );
+    case 62: // VoyageAIByMongoDB
+      return (
+        <img
+          src='https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://www.voyageai.com&size=256'
+          alt='VoyageAIByMongoDB'
+          width={iconSize}
+          height={iconSize}
+          style={{
+            objectFit: 'contain',
+            verticalAlign: 'middle',
+          }}
+        />
+      );
     case 50: // 可灵 Kling
       return <Kling.Color size={iconSize} />;
     case 51: // 即梦 Jimeng

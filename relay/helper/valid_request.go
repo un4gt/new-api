@@ -334,12 +334,13 @@ func GetAndValidateEmbeddingRequest(c *gin.Context, relayMode int) (*dto.Embeddi
 
 	if embeddingRequest.Input == nil {
 		// OpenAI-style /v1/embeddings requires `input`, but we allow a provider-specific
-		// extension via `extra_body.google.*` to carry multimodal/content payloads while
-		// keeping the endpoint shape compatible for standard clients.
+		// Voyage multimodal requests use top-level `inputs`, while Gemini uses an
+		// extension via `extra_body.google.*` to carry multimodal/content payloads.
 		//
-		// This is primarily used for Gemini embedding models that support multimodal
-		// content (e.g. gemini-embedding-2-preview).
-		if len(embeddingRequest.ExtraBody) == 0 || !hasGeminiEmbeddingExtraBodyInput(embeddingRequest.ExtraBody) {
+		// Keep both provider-specific shapes scoped to their channel adapters.
+		isVoyageChannel := common.GetContextKeyInt(c, appconstant.ContextKeyChannelType) == appconstant.ChannelTypeVoyageAIByMongoDB
+		hasVoyageInputs := isVoyageChannel && embeddingRequest.Inputs != nil
+		if !hasVoyageInputs && (len(embeddingRequest.ExtraBody) == 0 || !hasGeminiEmbeddingExtraBodyInput(embeddingRequest.ExtraBody)) {
 			return nil, fmt.Errorf("input is empty")
 		}
 	}

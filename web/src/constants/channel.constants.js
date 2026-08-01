@@ -174,6 +174,11 @@ export const CHANNEL_OPTIONS = [
     color: 'blue',
     label: 'ZeroEntropy',
   },
+  {
+    value: 62,
+    color: 'green',
+    label: 'VoyageAIByMongoDB',
+  },
 ];
 
 // Channel types that support upstream model list fetching in UI.

@@ -72,6 +72,12 @@ func detectTestRequestPath(channel *model.Channel, testModel string, endpointTyp
 			}
 		}
 	}
+	if channel != nil && channel.Type == constant.ChannelTypeVoyageAIByMongoDB {
+		if strings.HasPrefix(strings.ToLower(testModel), "rerank-") {
+			return "/v1/rerank"
+		}
+		return "/v1/embeddings"
+	}
 
 	if strings.Contains(strings.ToLower(testModel), "rerank") || strings.HasPrefix(strings.ToLower(testModel), "zerank") {
 		requestPath = "/v1/rerank"
@@ -664,6 +670,22 @@ func buildMoarkRerankMultimodalTestRequest(model string) *dto.RerankMultimodalRe
 	}
 }
 
+func buildVoyageEmbeddingTestRequest(model string) *dto.EmbeddingRequest {
+	request := &dto.EmbeddingRequest{Model: model}
+	if strings.HasPrefix(strings.ToLower(model), "voyage-multimodal-") {
+		request.Inputs = []any{
+			map[string]any{
+				"content": []any{
+					map[string]any{"type": "text", "text": "hello world"},
+				},
+			},
+		}
+		return request
+	}
+	request.Input = []any{"hello world"}
+	return request
+}
+
 func buildTestRequest(model string, endpointType string, channel *model.Channel, isStream bool) dto.Request {
 	testResponsesInput := json.RawMessage(`[{"role":"user","content":"hi"}]`)
 
@@ -673,6 +695,9 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 		case constant.EndpointTypeEmbeddings:
 			if channel != nil && channel.Type == constant.ChannelTypeMoark {
 				return buildMoarkEmbeddingTestRequest(model)
+			}
+			if channel != nil && channel.Type == constant.ChannelTypeVoyageAIByMongoDB {
+				return buildVoyageEmbeddingTestRequest(model)
 			}
 			// 返回 EmbeddingRequest
 			req := &dto.EmbeddingRequest{
@@ -779,6 +804,10 @@ func buildTestRequest(model string, endpointType string, channel *model.Channel,
 		if constant.IsMoarkEmbeddingModel(model) {
 			return buildMoarkEmbeddingTestRequest(model)
 		}
+	}
+	if channel != nil && channel.Type == constant.ChannelTypeVoyageAIByMongoDB &&
+		!strings.HasPrefix(strings.ToLower(model), "rerank-") {
+		return buildVoyageEmbeddingTestRequest(model)
 	}
 
 	if strings.Contains(strings.ToLower(model), "rerank") || strings.HasPrefix(strings.ToLower(model), "zerank") {

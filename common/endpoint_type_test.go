@@ -93,3 +93,26 @@ func TestGetEndpointTypesByChannelTypeOpenRouterDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestGetEndpointTypesByChannelTypeVoyageAIByMongoDB(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		model    string
+		expected constant.EndpointType
+	}{
+		{model: "voyage-4-large", expected: constant.EndpointTypeEmbeddings},
+		{model: "voyage-multimodal-3.5", expected: constant.EndpointTypeEmbeddings},
+		{model: "rerank-2.5", expected: constant.EndpointTypeJinaRerank},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.model, func(t *testing.T) {
+			t.Parallel()
+			got := GetEndpointTypesByChannelType(constant.ChannelTypeVoyageAIByMongoDB, test.model)
+			if len(got) != 1 || got[0] != test.expected {
+				t.Fatalf("unexpected endpoint types for %s: %v", test.model, got)
+			}
+		})
+	}
+}

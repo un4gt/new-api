@@ -23,10 +23,14 @@ type EmbeddingOptions struct {
 type EmbeddingRequest struct {
 	Model            string          `json:"model"`
 	Input            any             `json:"input"`
+	Inputs           any             `json:"inputs,omitempty"`
 	InputType        *string         `json:"input_type,omitempty"`
 	EncodingFormat   string          `json:"encoding_format,omitempty"`
 	Dimensions       *int            `json:"dimensions,omitempty"`
 	OutputDimension  *int            `json:"output_dimension,omitempty"`
+	OutputDType      *string         `json:"output_dtype,omitempty"`
+	OutputEncoding   *string         `json:"output_encoding,omitempty"`
+	Truncation       *bool           `json:"truncation,omitempty"`
 	MaxTokens        *int            `json:"max_tokens,omitempty"`
 	EmbeddingTypes   []string        `json:"embedding_types,omitempty"`
 	Truncate         *string         `json:"truncate,omitempty"`
@@ -44,15 +48,32 @@ type EmbeddingRequest struct {
 }
 
 func (r *EmbeddingRequest) GetTokenCountMeta() *types.TokenCountMeta {
-	var texts = make([]string, 0)
-
-	inputs := r.ParseInput()
-	for _, input := range inputs {
-		texts = append(texts, input)
-	}
+	texts := make([]string, 0)
+	appendEmbeddingInputTexts(&texts, r.Input)
+	appendEmbeddingInputTexts(&texts, r.Inputs)
 
 	return &types.TokenCountMeta{
 		CombineText: strings.Join(texts, "\n"),
+	}
+}
+
+func appendEmbeddingInputTexts(texts *[]string, input any) {
+	switch value := input.(type) {
+	case string:
+		*texts = append(*texts, value)
+	case []string:
+		*texts = append(*texts, value...)
+	case []any:
+		for _, item := range value {
+			appendEmbeddingInputTexts(texts, item)
+		}
+	case map[string]any:
+		if text, ok := value["text"].(string); ok {
+			*texts = append(*texts, text)
+		}
+		if content, ok := value["content"]; ok {
+			appendEmbeddingInputTexts(texts, content)
+		}
 	}
 }
 

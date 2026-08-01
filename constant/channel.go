@@ -58,6 +58,7 @@ const (
 	ChannelTypeNvidia                    = 59
 	ChannelTypeElasticInferenceEndpoints = 60
 	ChannelTypeZeroEntropy               = 61
+	ChannelTypeVoyageAIByMongoDB         = 62
 	ChannelTypeDummy                     // this one is only for count, do not add any channel after this
 
 )
@@ -125,6 +126,7 @@ var ChannelBaseURLs = []string{
 	"https://integrate.api.nvidia.com",          //59
 	"",                                          //60
 	"https://api.zeroentropy.dev",               //61
+	"https://ai.mongodb.com",                    //62
 }
 
 var ChannelTypeNames = map[int]string{
@@ -185,6 +187,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeNvidia:                    "Nvidia",
 	ChannelTypeElasticInferenceEndpoints: "ElasticInferenceEndpoints",
 	ChannelTypeZeroEntropy:               "ZeroEntropy",
+	ChannelTypeVoyageAIByMongoDB:         "VoyageAIByMongoDB",
 }
 
 func GetChannelTypeName(channelType int) string {

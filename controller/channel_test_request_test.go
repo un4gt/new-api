@@ -36,6 +36,27 @@ func TestBuildTestRequestAutoDetectsMokaAIAsEmbedding(t *testing.T) {
 	}
 }
 
+func TestVoyageAIByMongoDBChannelTestRequests(t *testing.T) {
+	t.Parallel()
+
+	channel := &model.Channel{Type: constant.ChannelTypeVoyageAIByMongoDB}
+	if path := detectTestRequestPath(channel, "voyage-4-large", ""); path != "/v1/embeddings" {
+		t.Fatalf("expected text embedding path, got %s", path)
+	}
+	if path := detectTestRequestPath(channel, "rerank-2.5", ""); path != "/v1/rerank" {
+		t.Fatalf("expected rerank path, got %s", path)
+	}
+
+	multimodalRequest := buildTestRequest("voyage-multimodal-3.5", "", channel, false)
+	embeddingRequest, ok := multimodalRequest.(*dto.EmbeddingRequest)
+	if !ok {
+		t.Fatalf("expected *dto.EmbeddingRequest, got %T", multimodalRequest)
+	}
+	if embeddingRequest.Input != nil || embeddingRequest.Inputs == nil {
+		t.Fatalf("expected Voyage multimodal test request to use inputs, got input=%T inputs=%T", embeddingRequest.Input, embeddingRequest.Inputs)
+	}
+}
+
 func TestDetectTestRequestPathAutoDetectsMoarkMultimodalRerank(t *testing.T) {
 	t.Parallel()
 

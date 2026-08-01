@@ -43,6 +43,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/tencent"
 	"github.com/QuantumNous/new-api/relay/channel/vertex"
 	"github.com/QuantumNous/new-api/relay/channel/volcengine"
+	"github.com/QuantumNous/new-api/relay/channel/voyageai_mongodb"
 	"github.com/QuantumNous/new-api/relay/channel/xai"
 	"github.com/QuantumNous/new-api/relay/channel/xunfei_xingchen"
 	"github.com/QuantumNous/new-api/relay/channel/zeroentropy"
@@ -123,6 +124,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &elastic.Adaptor{}
 	case constant.APITypeZeroEntropy:
 		return &zeroentropy.Adaptor{}
+	case constant.APITypeVoyageAIByMongoDB:
+		return &voyageai_mongodb.Adaptor{}
 	}
 	return nil
 }

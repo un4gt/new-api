@@ -75,6 +75,8 @@ func ChannelType2APIType(channelType int) (int, bool) {
 		apiType = constant.APITypeElasticInferenceEndpoints
 	case constant.ChannelTypeZeroEntropy:
 		apiType = constant.APITypeZeroEntropy
+	case constant.ChannelTypeVoyageAIByMongoDB:
+		apiType = constant.APITypeVoyageAIByMongoDB
 	}
 	if apiType == -1 {
 		return constant.APITypeOpenAI, false

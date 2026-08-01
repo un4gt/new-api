@@ -380,6 +380,28 @@ func TestGetAndValidateEmbeddingRequestCohereAllowsV2ExtensionFields(t *testing.
 	require.Equal(t, 2, *req.Priority)
 }
 
+func TestGetAndValidateEmbeddingRequestVoyageAllowsMultimodalInputs(t *testing.T) {
+	t.Parallel()
+
+	ctx := newJSONContext(t, map[string]any{
+		"model": "voyage-multimodal-3.5",
+		"inputs": []any{
+			map[string]any{
+				"content": []any{
+					map[string]any{"type": "text", "text": "hello"},
+				},
+			},
+		},
+	})
+	common.SetContextKey(ctx, appconstant.ContextKeyChannelType, appconstant.ChannelTypeVoyageAIByMongoDB)
+
+	req, err := GetAndValidateEmbeddingRequest(ctx, relayconstant.RelayModeEmbeddings)
+	require.NoError(t, err)
+	require.NotNil(t, req)
+	require.Nil(t, req.Input)
+	require.NotNil(t, req.Inputs)
+}
+
 func TestGetAndValidateEmbeddingRequest_MultipartFileInput(t *testing.T) {
 	t.Parallel()
 
