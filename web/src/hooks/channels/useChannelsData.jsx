@@ -870,20 +870,25 @@ export const useChannelsData = () => {
         url += `&stream=true`;
       }
       const res = await API.get(url);
+      const responseData = res?.data;
+      if (!responseData || typeof responseData !== 'object') {
+        throw new Error(t('测试失败'));
+      }
 
       // 检查是否在请求期间被停止
       if (shouldStopBatchTestingRef.current && isBatchTesting) {
         return Promise.resolve();
       }
 
-      const { success, message, time } = res.data;
+      const { success = false, message = '', time = 0 } = responseData;
+      const resultMessage = message || (success ? '' : t('测试失败'));
 
       // 更新测试结果
       setModelTestResults((prev) => ({
         ...prev,
         [testKey]: {
           success,
-          message,
+          message: resultMessage,
           time: time || 0,
           timestamp: Date.now(),
         },
@@ -913,7 +918,7 @@ export const useChannelsData = () => {
           );
         }
       } else {
-        showError(`${t('模型')} ${model}: ${message}`);
+        showError(`${t('模型')} ${model}: ${resultMessage}`);
       }
     } catch (error) {
       // 处理网络错误

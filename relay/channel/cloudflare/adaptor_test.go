@@ -135,6 +135,32 @@ func TestConvertEmbeddingRequest(t *testing.T) {
 	}
 }
 
+func TestConvertEmbeddingRequestAllowsChannelTestWithoutRawBody(t *testing.T) {
+	t.Parallel()
+
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = &http.Request{
+		Method: http.MethodPost,
+		Header: http.Header{"Content-Type": []string{"application/json"}},
+		Body:   nil,
+	}
+
+	var converted any
+	var err error
+	require.NotPanics(t, func() {
+		converted, err = (&Adaptor{}).ConvertEmbeddingRequest(ctx, &relaycommon.RelayInfo{}, dto.EmbeddingRequest{
+			Model: "cf/bge-m3",
+			Input: []any{"hello world"},
+		})
+	})
+	require.NoError(t, err)
+	request, ok := converted.(*CfEmbeddingRequest)
+	require.True(t, ok)
+	require.Equal(t, []string{"hello world"}, request.Text)
+}
+
 func TestConvertEmbeddingRequestRejectsUnknownCloudflareField(t *testing.T) {
 	t.Parallel()
 

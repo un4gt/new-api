@@ -137,7 +137,8 @@ var cloudflareEmbeddingAllowedFields = map[string]struct{}{
 }
 
 func validateEmbeddingFields(c *gin.Context, request dto.EmbeddingRequest) error {
-	if c != nil && c.Request != nil && strings.HasPrefix(c.Request.Header.Get("Content-Type"), "application/json") {
+	if c != nil && c.Request != nil && c.Request.Body != nil && c.Request.Body != http.NoBody &&
+		strings.HasPrefix(c.Request.Header.Get("Content-Type"), "application/json") {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return invalidEmbeddingRequest(fmt.Errorf("failed to read request body: %w", err))
